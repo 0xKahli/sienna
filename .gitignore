@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+web/node_modules/
+/.pnp
+.pnp.js
+
+# Build outputs
+/web/.next/
+/web/out/
+/web/build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Local environment variables
+.env
+.env.local
+web/.env.local
+web/.env
+web/.env.*.local
+
+# Vercel
+.vercel
+web/.vercel
+
+# Xcode / iOS
+build/
+DerivedData/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.moved-aside
+*.xcuserstate
+*.xcscmblueprint
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.pem
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
