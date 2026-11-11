@@ -26,6 +26,8 @@
 	<string>16.0</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Sienna needs camera access to take photos to upload.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Sienna uses Face ID to securely authenticate each time you open the app.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Sienna needs access to save photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

@@ -9,6 +9,7 @@ struct MediaItem: Identifiable {
 }
 
 struct UploadView: View {
+    var onLock: (() -> Void)? = nil
     @StateObject private var uploadService = UploadService()
     @State private var selectedItems: [PhotosPickerItem] = []
     @State private var selectedMedia: [MediaItem] = []
@@ -148,6 +149,14 @@ struct UploadView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if let onLock = onLock {
+                        Button(action: onLock) {
+                            Image(systemName: "lock")
+                                .foregroundColor(Color(hex: "#8b7355"))
+                        }
+                    }
+                }
                 ToolbarItem(placement: .principal) {
                     Text("sienna")
                         .font(.system(size: 20, weight: .light, design: .serif))

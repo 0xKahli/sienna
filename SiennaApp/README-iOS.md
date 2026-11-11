@@ -75,6 +75,15 @@ Photos are compressed to JPEG at 85% quality and POSTed as `multipart/form-data`
 
 ---
 
+## Biometrics & Face ID Authentication
+
+Sienna requires authentication **each time** you open or return to the app:
+- **Face ID / Touch ID**: Prompts automatically whenever the app becomes active, or tap **Unlock with Face ID**.
+- **Password Fallback**: Always available if biometrics are cancelled or unavailable.
+- **Auto-Lock**: Whenever you switch apps, minimize Sienna, or lock your iPhone, Sienna locks automatically. Tap the top-left **lock icon** anytime to lock manually.
+
+---
+
 ## File Structure
 
 ```
@@ -83,15 +92,16 @@ SiennaApp/
 │   └── project.pbxproj
 ├── SiennaApp/
 │   ├── SiennaApp.swift          # App entry point
-│   ├── ContentView.swift        # Auth gate
-│   ├── Info.plist               # Permissions + bundle config
+│   ├── ContentView.swift        # Auth gate with scenePhase lifecycle
+│   ├── Info.plist               # Permissions (Face ID, Camera, Photos)
 │   ├── Views/
-│   │   ├── LockView.swift       # URL + password setup screen
-│   │   ├── UploadView.swift     # Main upload screen
+│   │   ├── LockView.swift       # Face ID + password unlock screen
+│   │   ├── UploadView.swift     # Main upload screen with lock action
 │   │   ├── CameraView.swift     # UIKit camera wrapper
 │   │   └── SettingsView.swift   # Settings sheet
 │   ├── Services/
-│   │   └── UploadService.swift  # Multipart upload logic
+│   │   ├── BiometricService.swift # LocalAuthentication (Face ID / Touch ID)
+│   │   └── UploadService.swift  # Multipart upload logic (HEIC & JPEG)
 │   └── Extensions/
 │       └── Color+Hex.swift      # Hex color initializer
 └── README-iOS.md

@@ -4,6 +4,13 @@ import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import UploadDropzone from '@/components/UploadDropzone'
 import { Photo } from '@/lib/types'
+import {
+  isBiometricsAvailable,
+  hasBiometricEnrollment,
+  enrollBiometrics,
+  authenticateWithBiometrics,
+  clearBiometrics,
+} from '@/lib/webauthn'
 
 interface FileWithPreview {
   file: File
@@ -12,10 +19,40 @@ interface FileWithPreview {
   error?: string
 }
 
+function FaceIdIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 3H5a2 2 0 0 0-2 2v2" />
+      <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+      <path d="M3 17v2a2 2 0 0 0 2 2h2" />
+      <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+      <path d="M9 9h.01" />
+      <path d="M15 9h.01" />
+      <path d="M10 14a2.5 2.5 0 0 0 4 0" />
+      <path d="M12 11v2" />
+    </svg>
+  )
+}
+
+function LockIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  )
+}
+
 export default function UploadPage() {
   const [password, setPassword] = useState('')
   const [authed, setAuthed] = useState(false)
   const [authError, setAuthError] = useState('')
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [supportsBiometrics, setSupportsBiometrics] = useState(false)
+  const [hasEnrolled, setHasEnrolled] = useState(false)
+  const [isEnrolling, setIsEnrolling] = useState(false)
+  const [enrollSuccessMessage, setEnrollSuccessMessage] = useState('')
+
   const [files, setFiles] = useState<FileWithPreview[]>([])
   const [photos, setPhotos] = useState<Photo[]>([])
   const [originalPhotos, setOriginalPhotos] = useState<Photo[]>([])
@@ -24,13 +61,21 @@ export default function UploadPage() {
   const [draggedPhotoIndex, setDraggedPhotoIndex] = useState<number | null>(null)
   const [uploading, setUploading] = useState(false)
 
-  // On mount, check localStorage
+  // Check biometrics capability on mount.
+  // Note: We deliberately do NOT auto-unlock from permanent storage so that
+  // user authenticates with Face ID or password EACH TIME they open the page!
   useEffect(() => {
-    const stored = localStorage.getItem('sienna_password')
-    if (stored) {
-      setAuthed(true)
-      setPassword(stored)
+    // Clean up any legacy plaintext passwords stored permanently
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('sienna_password')
     }
+
+    async function checkSupport() {
+      const supported = await isBiometricsAvailable()
+      setSupportsBiometrics(supported)
+      setHasEnrolled(hasBiometricEnrollment())
+    }
+    checkSupport()
   }, [])
 
   const fetchPhotos = useCallback(async () => {
@@ -43,7 +88,106 @@ export default function UploadPage() {
     }
   }, [])
 
-  // Desktop Drag & Drop
+  useEffect(() => {
+    if (authed) fetchPhotos()
+  }, [authed, fetchPhotos])
+
+  // --- Password Auth ---
+  async function handlePasswordSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!password.trim()) {
+      setAuthError('Please enter the password.')
+      return
+    }
+
+    setIsVerifying(true)
+    setAuthError('')
+
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: password.trim() }),
+      })
+
+      if (res.ok) {
+        setAuthed(true)
+        setAuthError('')
+      } else {
+        setAuthError('Incorrect password.')
+      }
+    } catch {
+      setAuthError('Network error verifying password.')
+    } finally {
+      setIsVerifying(false)
+    }
+  }
+
+  // --- Biometric Auth (Face ID on iPhone) ---
+  async function handleBiometricAuth() {
+    setIsVerifying(true)
+    setAuthError('')
+
+    const result = await authenticateWithBiometrics()
+    if (result.success && result.password) {
+      // Verify recovered password against backend
+      try {
+        const res = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: result.password }),
+        })
+
+        if (res.ok) {
+          setPassword(result.password)
+          setAuthed(true)
+          setAuthError('')
+        } else {
+          setAuthError('Stored biometric credential is outdated. Please enter password.')
+          clearBiometrics()
+          setHasEnrolled(false)
+        }
+      } catch {
+        setAuthError('Network error completing authentication.')
+      }
+    } else {
+      setAuthError(result.error || 'Face ID authentication cancelled or failed.')
+    }
+
+    setIsVerifying(false)
+  }
+
+  // --- Enroll Biometrics ---
+  async function handleEnrollBiometrics() {
+    if (!password) return
+    setIsEnrolling(true)
+    setEnrollSuccessMessage('')
+
+    const res = await enrollBiometrics(password)
+    if (res.success) {
+      setHasEnrolled(true)
+      setEnrollSuccessMessage('Face ID registered for this device!')
+      setTimeout(() => setEnrollSuccessMessage(''), 4000)
+    } else {
+      alert(res.error || 'Failed to enroll Face ID.')
+    }
+    setIsEnrolling(false)
+  }
+
+  function handleRemoveBiometrics() {
+    if (confirm('Remove Face ID shortcut on this device?')) {
+      clearBiometrics()
+      setHasEnrolled(false)
+    }
+  }
+
+  function handleLock() {
+    setAuthed(false)
+    setPassword('')
+    setFiles([])
+  }
+
+  // --- Desktop Drag & Drop Reordering ---
   function handleDragStart(index: number) {
     setDraggedPhotoIndex(index)
   }
@@ -66,7 +210,7 @@ export default function UploadPage() {
     setDraggedPhotoIndex(null)
   }
 
-  // Mobile / Touch Drag & Swipe Reordering
+  // --- Mobile / Touch Drag & Swipe Reordering ---
   function handleTouchStart(index: number) {
     setDraggedPhotoIndex(index)
   }
@@ -127,29 +271,6 @@ export default function UploadPage() {
     }
   }
 
-  useEffect(() => {
-    if (authed) fetchPhotos()
-  }, [authed, fetchPhotos])
-
-  function handlePasswordSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!password.trim()) {
-      setAuthError('Enter a password.')
-      return
-    }
-    // We optimistically trust the password here; the API will reject on wrong password
-    localStorage.setItem('sienna_password', password.trim())
-    setAuthed(true)
-    setAuthError('')
-  }
-
-  function handleLogout() {
-    localStorage.removeItem('sienna_password')
-    setAuthed(false)
-    setPassword('')
-    setFiles([])
-  }
-
   const onDrop = useCallback((accepted: File[]) => {
     const newFiles = accepted.map((file) => {
       const isHeic = /heic|heif/i.test(file.name.split('.').pop() ?? '') ||
@@ -165,7 +286,6 @@ export default function UploadPage() {
 
   async function compressImageClient(file: File): Promise<File> {
     return new Promise((resolve) => {
-      // If browser can't decode (like native HEIC without codec), return original
       if (!file.type.startsWith('image/') || /heic|heif/i.test(file.type) || /heic|heif/i.test(file.name)) {
         return resolve(file)
       }
@@ -177,7 +297,6 @@ export default function UploadPage() {
         const canvas = document.createElement('canvas')
         let { width, height } = img
 
-        // Scale to max dimension 2400px (still ultra-crisp resolution)
         const maxDim = 2400
         if (width > maxDim || height > maxDim) {
           if (width > height) {
@@ -226,7 +345,7 @@ export default function UploadPage() {
       try {
         fileToUpload = await compressImageClient(fileToUpload)
       } catch {
-        // fallback to original file
+        // fallback
       }
     }
 
@@ -320,56 +439,142 @@ export default function UploadPage() {
     setFiles((prev) => prev.filter((f) => f.status !== 'done'))
   }
 
-  // --- Password gate ---
+  // ==========================================
+  // --- Lock Screen (Each time user visits) ---
+  // ==========================================
   if (!authed) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
-        <form
-          onSubmit={handlePasswordSubmit}
-          className="flex flex-col gap-4 w-full max-w-xs"
-        >
-          <h2
-            className="text-center text-lg tracking-widest text-[#8b7355] dark:text-[#a89482]"
-            style={{ fontFamily: 'Georgia, serif' }}
-          >
-            upload
-          </h2>
-          <input
-            type="password"
-            placeholder="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="border border-[#c8b89a] dark:border-[#423730] rounded px-4 py-2 bg-transparent text-[#2c2420] dark:text-[#ede7e1] placeholder-[#c8b89a] dark:placeholder-[#6a5b51] focus:outline-none focus:border-[#8b7355] dark:focus:border-[#a89482] text-sm"
-          />
-          {authError && <p className="text-red-400 text-xs text-center">{authError}</p>}
-          <button
-            type="submit"
-            className="bg-[#8b7355] dark:bg-[#a89482] text-[#faf7f4] dark:text-[#181412] rounded px-4 py-2 text-sm tracking-widest hover:bg-[#c17f52] dark:hover:bg-[#d48b5e] transition-colors"
-          >
-            enter
-          </button>
-        </form>
+      <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
+        <div className="w-full max-w-sm flex flex-col gap-6">
+          {/* Logo & Header */}
+          <div className="text-center space-y-1">
+            <h2
+              className="text-3xl tracking-wide text-[#8b7355] dark:text-[#a89482]"
+              style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}
+            >
+              sienna
+            </h2>
+            <p className="text-xs uppercase tracking-widest text-[#8b7355]/70 dark:text-[#a89482]/70 font-light">
+              authenticate to continue
+            </p>
+          </div>
+
+          {/* Biometrics Option (Face ID) */}
+          {supportsBiometrics && hasEnrolled && (
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={handleBiometricAuth}
+                disabled={isVerifying}
+                className="w-full flex items-center justify-center gap-2.5 bg-[#c17f52] hover:bg-[#a86a40] text-white py-3 px-4 rounded-lg font-medium text-sm tracking-wide shadow-sm hover:shadow transition-all disabled:opacity-50 active:scale-[0.99] cursor-pointer"
+              >
+                <FaceIdIcon className="w-5 h-5 text-white/95" />
+                <span>{isVerifying ? 'Verifying…' : 'Unlock with Face ID'}</span>
+              </button>
+
+              <div className="flex items-center gap-3 my-1">
+                <div className="flex-1 h-px bg-[#c8b89a]/30 dark:bg-[#423730]" />
+                <span className="text-[10px] text-[#8b7355]/60 dark:text-[#a89482]/60 uppercase tracking-widest">
+                  or use password
+                </span>
+                <div className="flex-1 h-px bg-[#c8b89a]/30 dark:bg-[#423730]" />
+              </div>
+            </div>
+          )}
+
+          {/* Password Form */}
+          <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3">
+            <input
+              type="password"
+              placeholder="upload password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isVerifying}
+              autoFocus={!hasEnrolled}
+              className="border border-[#c8b89a] dark:border-[#423730] rounded-lg px-4 py-2.5 bg-white/40 dark:bg-[#221c19]/40 text-[#2c2420] dark:text-[#ede7e1] placeholder-[#c8b89a] dark:placeholder-[#6a5b51] focus:outline-none focus:border-[#8b7355] dark:focus:border-[#a89482] text-sm tracking-wide transition-colors"
+            />
+
+            {authError && (
+              <p className="text-red-400 dark:text-red-300 text-xs text-center px-1 font-light">
+                {authError}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={isVerifying}
+              className={`rounded-lg px-4 py-2.5 text-sm tracking-widest uppercase font-medium transition-all cursor-pointer ${
+                hasEnrolled
+                  ? 'border border-[#c8b89a]/60 dark:border-[#423730] text-[#8b7355] dark:text-[#a89482] hover:bg-[#8b7355]/10'
+                  : 'bg-[#8b7355] dark:bg-[#a89482] text-[#faf7f4] dark:text-[#181412] hover:bg-[#c17f52] dark:hover:bg-[#d48b5e] shadow-sm'
+              }`}
+            >
+              {isVerifying ? 'checking…' : 'enter'}
+            </button>
+          </form>
+        </div>
       </div>
     )
   }
 
-  // --- Upload UI ---
+  // ==========================================
+  // --- Upload UI (Authenticated) ---
+  // ==========================================
   return (
     <div className="max-w-2xl mx-auto px-4 pb-24">
-      {/* Header row */}
+      {/* Header row with Face ID setup & Lock button */}
       <div className="flex items-center justify-between mb-8">
-        <h2
-          className="text-lg tracking-widest text-[#8b7355] dark:text-[#a89482]"
-          style={{ fontFamily: 'Georgia, serif' }}
-        >
-          upload
-        </h2>
-        <button
-          onClick={handleLogout}
-          className="text-xs text-[#c8b89a] dark:text-[#6a5b51] hover:text-[#8b7355] dark:hover:text-[#a89482] transition-colors tracking-widest"
-        >
-          sign out
-        </button>
+        <div className="flex items-center gap-3">
+          <h2
+            className="text-lg tracking-widest text-[#8b7355] dark:text-[#a89482]"
+            style={{ fontFamily: 'Georgia, serif' }}
+          >
+            upload
+          </h2>
+          {enrollSuccessMessage && (
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-light animate-fade-in">
+              {enrollSuccessMessage}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Biometrics Setup / Status */}
+          {supportsBiometrics && !hasEnrolled && (
+            <button
+              type="button"
+              onClick={handleEnrollBiometrics}
+              disabled={isEnrolling}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs text-[#c17f52] dark:text-[#d48b5e] border border-[#c17f52]/40 dark:border-[#d48b5e]/40 hover:bg-[#c17f52]/10 rounded-md transition-colors tracking-wide cursor-pointer"
+              title="Enable Face ID for one-tap unlock next time"
+            >
+              <FaceIdIcon className="w-3.5 h-3.5" />
+              <span>{isEnrolling ? 'enrolling…' : 'enable Face ID'}</span>
+            </button>
+          )}
+
+          {supportsBiometrics && hasEnrolled && (
+            <button
+              type="button"
+              onClick={handleRemoveBiometrics}
+              className="text-[11px] text-[#8b7355]/60 dark:text-[#a89482]/60 hover:text-red-400 dark:hover:text-red-300 transition-colors"
+              title="Click to remove Face ID for this device"
+            >
+              ✓ Face ID active
+            </button>
+          )}
+
+          {/* Lock / Sign Out */}
+          <button
+            type="button"
+            onClick={handleLock}
+            className="inline-flex items-center gap-1.5 text-xs text-[#c8b89a] dark:text-[#6a5b51] hover:text-[#8b7355] dark:hover:text-[#a89482] transition-colors tracking-widest uppercase cursor-pointer"
+            title="Lock session"
+          >
+            <LockIcon className="w-3.5 h-3.5" />
+            <span>lock</span>
+          </button>
+        </div>
       </div>
 
       {/* Dropzone */}

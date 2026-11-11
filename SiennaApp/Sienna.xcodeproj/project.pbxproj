@@ -15,6 +15,7 @@
 		AA0000000000000000000006 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000016 /* SettingsView.swift */; };
 		AA0000000000000000000007 /* UploadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000017 /* UploadService.swift */; };
 		AA0000000000000000000008 /* Color+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000018 /* Color+Hex.swift */; };
+		AA0000000000000000000009 /* BiometricService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000001A /* BiometricService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 		AA0000000000000000000017 /* UploadService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadService.swift; sourceTree = "<group>"; };
 		AA0000000000000000000018 /* Color+Hex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Hex.swift"; sourceTree = "<group>"; };
 		AA0000000000000000000019 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA000000000000000000001A /* BiometricService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,6 +66,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000017 /* UploadService.swift */,
+				AA000000000000000000001A /* BiometricService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -173,6 +176,7 @@
 				AA0000000000000000000006 /* SettingsView.swift in Sources */,
 				AA0000000000000000000007 /* UploadService.swift in Sources */,
 				AA0000000000000000000008 /* Color+Hex.swift in Sources */,
+				AA0000000000000000000009 /* BiometricService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
