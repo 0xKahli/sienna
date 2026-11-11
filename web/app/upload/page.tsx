@@ -73,20 +73,77 @@ export default function UploadPage() {
     setFiles((prev) => [...prev, ...newFiles])
   }, [])
 
-  async function uploadAll() {
-    if (uploading) return
-    setUploading(true)
+  async function compressImageClient(file: File): Promise<File> {
+    return new Promise((resolve) => {
+      // If browser can't decode (like native HEIC without codec), return original
+      if (!file.type.startsWith('image/') || /heic|heif/i.test(file.type) || /heic|heif/i.test(file.name)) {
+        return resolve(file)
+      }
 
-    const pending = files.filter((f) => f.status === 'pending')
+      const img = new window.Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const canvas = document.createElement('canvas')
+        let { width, height } = img
 
-    for (const item of pending) {
-      setFiles((prev) =>
-        prev.map((f) => (f.file === item.file ? { ...f, status: 'uploading' } : f))
-      )
+        // Scale to max dimension 2400px (still ultra-crisp resolution)
+        const maxDim = 2400
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width)
+            width = maxDim
+          } else {
+            width = Math.round((width * maxDim) / height)
+            height = maxDim
+          }
+        }
 
-      const formData = new FormData()
-      formData.append('file', item.file)
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return resolve(file)
 
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return resolve(file)
+            const compressed = new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            })
+            resolve(compressed)
+          },
+          'image/jpeg',
+          0.85
+        )
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        resolve(file)
+      }
+      img.src = url
+    })
+  }
+
+  async function uploadSingleFile(item: FileWithPreview, compressIfLarge = false): Promise<boolean> {
+    setFiles((prev) =>
+      prev.map((f) => (f.file === item.file ? { ...f, status: 'uploading', error: undefined } : f))
+    )
+
+    let fileToUpload = item.file
+    if (compressIfLarge && fileToUpload.size > 4 * 1024 * 1024) {
+      try {
+        fileToUpload = await compressImageClient(fileToUpload)
+      } catch {
+        // fallback to original file
+      }
+    }
+
+    const formData = new FormData()
+    formData.append('file', fileToUpload)
+
+    try {
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'x-upload-password': password },
@@ -95,23 +152,53 @@ export default function UploadPage() {
 
       if (res.ok) {
         setFiles((prev) =>
-          prev.map((f) => (f.file === item.file ? { ...f, status: 'done' } : f))
+          prev.map((f) => (f.file === item.file ? { ...f, status: 'done', error: undefined } : f))
         )
+        return true
       } else {
-        let errorMsg = 'Upload failed'
-        try {
-          const body = await res.json()
-          if (body?.error) errorMsg = body.error
-        } catch {
-          // response had no JSON body — use status text
-          errorMsg = res.statusText || `Error ${res.status}`
+        let errorMsg = res.status === 413 ? 'Error 413' : 'Upload failed'
+        if (res.status !== 413) {
+          try {
+            const body = await res.json()
+            if (body?.error) errorMsg = body.error
+          } catch {
+            errorMsg = res.statusText || `Error ${res.status}`
+          }
         }
         setFiles((prev) =>
           prev.map((f) =>
             f.file === item.file ? { ...f, status: 'error', error: errorMsg } : f
           )
         )
+        return false
       }
+    } catch {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.file === item.file ? { ...f, status: 'error', error: 'Network error' } : f
+        )
+      )
+      return false
+    }
+  }
+
+  async function retrySingleFile(item: FileWithPreview) {
+    const is413 = item.error?.includes('413')
+    const success = await uploadSingleFile(item, is413)
+    if (success) {
+      await fetchPhotos()
+    }
+  }
+
+  async function uploadAll() {
+    if (uploading) return
+    setUploading(true)
+
+    const pending = files.filter((f) => f.status === 'pending' || f.status === 'error')
+
+    for (const item of pending) {
+      const is413 = item.error?.includes('413')
+      await uploadSingleFile(item, is413)
     }
 
     setUploading(false)
@@ -249,14 +336,58 @@ export default function UploadPage() {
                 <div
                   className={`absolute inset-0 flex items-center justify-center text-xs font-medium transition-opacity ${
                     item.status === 'pending'
-                      ? 'opacity-0'
-                      : 'opacity-100 bg-black/40 text-white'
+                      ? 'opacity-0 pointer-events-none'
+                      : 'opacity-100 bg-black/55 text-white'
                   }`}
                 >
-                  {item.status === 'uploading' && '…'}
-                  {item.status === 'done' && '✓'}
+                  {item.status === 'uploading' && (
+                    <div className="flex flex-col items-center gap-1.5">
+                      <svg
+                        className="animate-spin w-5 h-5 text-white/90"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      <span className="text-[10px] text-white/80 tracking-widest uppercase">uploading</span>
+                    </div>
+                  )}
+                  {item.status === 'done' && (
+                    <span className="text-xl text-emerald-400 font-bold">✓</span>
+                  )}
                   {item.status === 'error' && (
-                    <span className="text-center px-1">{item.error}</span>
+                    <div className="flex flex-col items-center justify-center gap-2 p-2 text-center w-full">
+                      <span className="text-xs font-semibold text-red-300 drop-shadow-sm tracking-wide">
+                        {item.error || 'Error 413'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          retrySingleFile(item)
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-white/25 hover:bg-white/35 active:scale-95 text-white text-[11px] font-medium tracking-wider uppercase transition-all backdrop-blur-md border border-white/30 shadow-sm cursor-pointer"
+                        title="Retry upload"
+                      >
+                        <svg
+                          className="w-3.5 h-3.5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                          <path d="M3 3v5h5" />
+                          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                          <path d="M16 21h5v-5" />
+                        </svg>
+                        retry
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
