@@ -148,7 +148,7 @@ export default function UploadPage() {
           className="flex flex-col gap-4 w-full max-w-xs"
         >
           <h2
-            className="text-center text-lg tracking-widest text-[#8b7355]"
+            className="text-center text-lg tracking-widest text-[#8b7355] dark:text-[#a89482]"
             style={{ fontFamily: 'Georgia, serif' }}
           >
             upload
@@ -158,12 +158,12 @@ export default function UploadPage() {
             placeholder="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="border border-[#c8b89a] rounded px-4 py-2 bg-transparent text-[#2c2420] placeholder-[#c8b89a] focus:outline-none focus:border-[#8b7355] text-sm"
+            className="border border-[#c8b89a] dark:border-[#423730] rounded px-4 py-2 bg-transparent text-[#2c2420] dark:text-[#ede7e1] placeholder-[#c8b89a] dark:placeholder-[#6a5b51] focus:outline-none focus:border-[#8b7355] dark:focus:border-[#a89482] text-sm"
           />
           {authError && <p className="text-red-400 text-xs text-center">{authError}</p>}
           <button
             type="submit"
-            className="bg-[#8b7355] text-[#faf7f4] rounded px-4 py-2 text-sm tracking-widest hover:bg-[#c17f52] transition-colors"
+            className="bg-[#8b7355] dark:bg-[#a89482] text-[#faf7f4] dark:text-[#181412] rounded px-4 py-2 text-sm tracking-widest hover:bg-[#c17f52] dark:hover:bg-[#d48b5e] transition-colors"
           >
             enter
           </button>
@@ -178,14 +178,14 @@ export default function UploadPage() {
       {/* Header row */}
       <div className="flex items-center justify-between mb-8">
         <h2
-          className="text-lg tracking-widest text-[#8b7355]"
+          className="text-lg tracking-widest text-[#8b7355] dark:text-[#a89482]"
           style={{ fontFamily: 'Georgia, serif' }}
         >
           upload
         </h2>
         <button
           onClick={handleLogout}
-          className="text-xs text-[#c8b89a] hover:text-[#8b7355] transition-colors tracking-widest"
+          className="text-xs text-[#c8b89a] dark:text-[#6a5b51] hover:text-[#8b7355] dark:hover:text-[#a89482] transition-colors tracking-widest"
         >
           sign out
         </button>
@@ -198,14 +198,14 @@ export default function UploadPage() {
       {files.length > 0 && (
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-[#8b7355] tracking-widest uppercase">
+            <span className="text-xs text-[#8b7355] dark:text-[#a89482] tracking-widest uppercase">
               {files.length} file{files.length !== 1 ? 's' : ''} selected
             </span>
             <div className="flex gap-3">
               {files.some((f) => f.status === 'done') && (
                 <button
                   onClick={clearDone}
-                  className="text-xs text-[#c8b89a] hover:text-[#8b7355] transition-colors tracking-widest"
+                  className="text-xs text-[#c8b89a] dark:text-[#6a5b51] hover:text-[#8b7355] dark:hover:text-[#a89482] transition-colors tracking-widest"
                 >
                   clear done
                 </button>
@@ -214,7 +214,7 @@ export default function UploadPage() {
                 <button
                   onClick={uploadAll}
                   disabled={uploading}
-                  className="text-xs bg-[#8b7355] text-[#faf7f4] rounded px-4 py-1.5 tracking-widest hover:bg-[#c17f52] transition-colors disabled:opacity-50"
+                  className="text-xs bg-[#8b7355] dark:bg-[#a89482] text-[#faf7f4] dark:text-[#181412] rounded px-4 py-1.5 tracking-widest hover:bg-[#c17f52] dark:hover:bg-[#d48b5e] transition-colors disabled:opacity-50"
                 >
                   {uploading ? 'uploading…' : 'upload all'}
                 </button>
@@ -224,7 +224,7 @@ export default function UploadPage() {
 
           <div className="grid grid-cols-3 gap-2">
             {files.map((item, i) => (
-              <div key={i} className="relative aspect-square overflow-hidden rounded">
+              <div key={i} className="relative aspect-square overflow-hidden rounded bg-[#ede8e1] dark:bg-[#221c19]">
                 {item.preview ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -234,9 +234,9 @@ export default function UploadPage() {
                   />
                 ) : (
                   // HEIC placeholder — browser can't render it, server will convert
-                  <div className="w-full h-full bg-[#ede8e1] flex flex-col items-center justify-center gap-1">
-                    <span className="text-[#8b7355] text-xs font-medium tracking-widest">HEIC</span>
-                    <span className="text-[#c8b89a] text-[10px] tracking-wide truncate max-w-[80px] px-1">
+                  <div className="w-full h-full bg-[#ede8e1] dark:bg-[#221c19] flex flex-col items-center justify-center gap-1">
+                    <span className="text-[#8b7355] dark:text-[#d48b5e] text-xs font-medium tracking-widest">HEIC</span>
+                    <span className="text-[#c8b89a] dark:text-[#6a5b51] text-[10px] tracking-wide truncate max-w-[80px] px-1">
                       {item.file.name}
                     </span>
                   </div>
@@ -264,7 +264,7 @@ export default function UploadPage() {
       {/* Existing photos */}
       {photos.length > 0 && (
         <div className="mt-16">
-          <h3 className="text-xs text-[#8b7355] tracking-widest uppercase mb-4">
+          <h3 className="text-xs text-[#8b7355] dark:text-[#a89482] tracking-widest uppercase mb-4">
             {photos.length} photo{photos.length !== 1 ? 's' : ''}
           </h3>
           <div className="grid grid-cols-3 gap-2">

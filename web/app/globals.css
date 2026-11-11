@@ -10,6 +10,13 @@
 
 body {
   background-color: #faf7f4;
+  color: #2c2420;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.dark body {
+  background-color: #181412;
+  color: #ede7e1;
 }
 
 img {

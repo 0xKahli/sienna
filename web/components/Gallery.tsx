@@ -54,7 +54,7 @@ export default function Gallery({ photos }: GalleryProps) {
             key={photo.id}
             className={`photo-fade-in transition-transform duration-700 ease-out ${variant.wrapper}`}
           >
-            <div className="relative w-full overflow-hidden shadow-[0_2px_20px_-4px_rgba(44,36,32,0.06)] hover:shadow-[0_8px_30px_-6px_rgba(44,36,32,0.12)] transition-shadow duration-500">
+            <div className="relative w-full overflow-hidden shadow-[0_2px_20px_-4px_rgba(44,36,32,0.06)] dark:shadow-[0_4px_30px_-6px_rgba(0,0,0,0.5)] hover:shadow-[0_8px_30px_-6px_rgba(44,36,32,0.12)] dark:hover:shadow-[0_8px_35px_-4px_rgba(0,0,0,0.7)] transition-shadow duration-500">
               <Image
                 src={photo.url}
                 alt=""
