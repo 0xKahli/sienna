@@ -529,7 +529,7 @@ export default function UploadPage() {
             className="text-lg tracking-widest text-[#8b7355] dark:text-[#a89482]"
             style={{ fontFamily: 'Georgia, serif' }}
           >
-            upload
+            0x
           </h2>
           {enrollSuccessMessage && (
             <span className="text-xs text-emerald-600 dark:text-emerald-400 font-light animate-fade-in">

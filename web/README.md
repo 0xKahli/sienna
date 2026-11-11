@@ -56,7 +56,7 @@ Open http://localhost:3000
 | Route | Description |
 |---|---|
 | `/` | Public photo gallery |
-| `/upload` | Password-protected upload & manage page |
+| `/0x` | Password/biometric-protected upload & manage page |
 | `GET /api/photos` | Returns all photos (JSON) |
 | `POST /api/upload` | Upload a photo (requires `x-upload-password` header) |
 | `DELETE /api/delete` | Delete a photo (requires `x-upload-password` header) |

@@ -3,7 +3,7 @@
 > Personal image archive & photo sharing website with a companion native iOS uploader. Warm, editorial aesthetic.
 
 - **Live Gallery**: [https://0xsienna.vercel.app](https://0xsienna.vercel.app)
-- **Web Upload**: [https://0xsienna.vercel.app/upload](https://0xsienna.vercel.app/upload)
+- **Web Upload**: [https://0xsienna.vercel.app/0x](https://0xsienna.vercel.app/0x)
 
 ---
 
