@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS photos (
   storage_path          TEXT        NOT NULL,
   original_url          TEXT,
   original_storage_path TEXT,
+  position              INTEGER     DEFAULT 0,
   created_at            TIMESTAMPTZ DEFAULT NOW()
 );
 

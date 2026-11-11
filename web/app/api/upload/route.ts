@@ -112,7 +112,17 @@ export async function POST(req: NextRequest) {
   const { data: urlData } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(storagePath)
   const publicUrl = urlData.publicUrl
 
-  // 4. Insert into database
+  // 4. Insert into database (placed at the top of the gallery)
+  const { data: minPosData } = await supabaseAdmin
+    .from('photos')
+    .select('position')
+    .order('position', { ascending: true })
+    .limit(1)
+
+  const newPosition = typeof minPosData?.[0]?.position === 'number'
+    ? minPosData[0].position - 1
+    : 0
+
   const { data: photo, error: dbError } = await supabaseAdmin
     .from('photos')
     .insert({
@@ -120,6 +130,7 @@ export async function POST(req: NextRequest) {
       storage_path: storagePath,
       original_url: originalUrl,
       original_storage_path: originalStoragePath,
+      position: newPosition,
     })
     .select()
     .single()

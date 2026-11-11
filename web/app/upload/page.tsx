@@ -18,6 +18,10 @@ export default function UploadPage() {
   const [authError, setAuthError] = useState('')
   const [files, setFiles] = useState<FileWithPreview[]>([])
   const [photos, setPhotos] = useState<Photo[]>([])
+  const [originalPhotos, setOriginalPhotos] = useState<Photo[]>([])
+  const [isOrderDirty, setIsOrderDirty] = useState(false)
+  const [savingOrder, setSavingOrder] = useState(false)
+  const [draggedPhotoIndex, setDraggedPhotoIndex] = useState<number | null>(null)
   const [uploading, setUploading] = useState(false)
 
   // On mount, check localStorage
@@ -34,8 +38,78 @@ export default function UploadPage() {
     if (res.ok) {
       const data = await res.json()
       setPhotos(data)
+      setOriginalPhotos(data)
+      setIsOrderDirty(false)
     }
   }, [])
+
+  function movePhoto(index: number, direction: 'prev' | 'next') {
+    const targetIndex = direction === 'prev' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= photos.length) return
+
+    setPhotos((prev) => {
+      const updated = [...prev]
+      const [moved] = updated.splice(index, 1)
+      updated.splice(targetIndex, 0, moved)
+      return updated
+    })
+    setIsOrderDirty(true)
+  }
+
+  function handleDragStart(index: number) {
+    setDraggedPhotoIndex(index)
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault()
+    if (draggedPhotoIndex === null || draggedPhotoIndex === index) return
+
+    setPhotos((prev) => {
+      const updated = [...prev]
+      const [moved] = updated.splice(draggedPhotoIndex, 1)
+      updated.splice(index, 0, moved)
+      return updated
+    })
+    setDraggedPhotoIndex(index)
+    setIsOrderDirty(true)
+  }
+
+  function handleDragEnd() {
+    setDraggedPhotoIndex(null)
+  }
+
+  function resetOrder() {
+    setPhotos(originalPhotos)
+    setIsOrderDirty(false)
+  }
+
+  async function saveOrder() {
+    if (savingOrder) return
+    setSavingOrder(true)
+
+    try {
+      const photoIds = photos.map((p) => p.id)
+      const res = await fetch('/api/photos/reorder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-upload-password': password,
+        },
+        body: JSON.stringify({ photoIds }),
+      })
+
+      if (res.ok) {
+        setOriginalPhotos(photos)
+        setIsOrderDirty(false)
+      } else {
+        alert('Failed to save photo order.')
+      }
+    } catch {
+      alert('Network error saving photo order.')
+    } finally {
+      setSavingOrder(false)
+    }
+  }
 
   useEffect(() => {
     if (authed) fetchPhotos()
@@ -396,27 +470,97 @@ export default function UploadPage() {
         </div>
       )}
 
-      {/* Existing photos */}
+      {/* Existing photos with Reordering */}
       {photos.length > 0 && (
         <div className="mt-16">
-          <h3 className="text-xs text-[#8b7355] dark:text-[#a89482] tracking-widest uppercase mb-4">
-            {photos.length} photo{photos.length !== 1 ? 's' : ''}
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-xs text-[#8b7355] dark:text-[#a89482] tracking-widest uppercase">
+                {photos.length} photo{photos.length !== 1 ? 's' : ''} · drag or use arrows to reorder
+              </h3>
+            </div>
+            {isOrderDirty && (
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={resetOrder}
+                  disabled={savingOrder}
+                  className="text-xs text-[#c8b89a] dark:text-[#6a5b51] hover:text-[#8b7355] dark:hover:text-[#a89482] transition-colors tracking-widest uppercase"
+                >
+                  reset
+                </button>
+                <button
+                  type="button"
+                  onClick={saveOrder}
+                  disabled={savingOrder}
+                  className="text-xs bg-[#8b7355] dark:bg-[#a89482] text-[#faf7f4] dark:text-[#181412] rounded px-3 py-1 tracking-widest hover:bg-[#c17f52] dark:hover:bg-[#d48b5e] transition-colors font-medium shadow-sm uppercase disabled:opacity-50"
+                >
+                  {savingOrder ? 'saving…' : 'save order'}
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-3 gap-2">
-            {photos.map((photo) => (
-              <div key={photo.id} className="relative group aspect-square overflow-hidden rounded">
+            {photos.map((photo, index) => (
+              <div
+                key={photo.id}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                className={`relative group aspect-square overflow-hidden rounded bg-[#ede8e1] dark:bg-[#221c19] cursor-grab active:cursor-grabbing transition-all select-none ${
+                  draggedPhotoIndex === index ? 'opacity-40 scale-95 ring-2 ring-[#c17f52]' : ''
+                }`}
+              >
                 <Image
                   src={photo.url}
                   alt=""
                   fill
                   sizes="(max-width: 672px) 33vw, 224px"
-                  className="object-cover"
+                  className="object-cover pointer-events-none"
                 />
+
+                {/* Position Index Badge */}
+                <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono bg-black/60 text-white/90 backdrop-blur-sm pointer-events-none">
+                  {index + 1}
+                </span>
+
+                {/* Move arrows for quick touch or click reordering */}
+                <div className="absolute bottom-1.5 left-1.5 flex gap-1 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    disabled={index === 0}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      movePhoto(index, 'prev')
+                    }}
+                    className="w-6 h-6 flex items-center justify-center rounded bg-black/60 hover:bg-black/80 text-white disabled:opacity-20 text-xs transition-all active:scale-95 cursor-pointer"
+                    title="Move left/earlier"
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    disabled={index === photos.length - 1}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      movePhoto(index, 'next')
+                    }}
+                    className="w-6 h-6 flex items-center justify-center rounded bg-black/60 hover:bg-black/80 text-white disabled:opacity-20 text-xs transition-all active:scale-95 cursor-pointer"
+                    title="Move right/later"
+                  >
+                    →
+                  </button>
+                </div>
+
                 {/* Delete button — visible on hover */}
                 <button
+                  type="button"
                   onClick={() => deletePhoto(photo)}
                   aria-label="Delete photo"
-                  className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white rounded p-1 text-xs leading-none hover:bg-red-600"
+                  className="absolute top-1.5 right-1.5 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity bg-black/60 text-white rounded p-1 text-xs leading-none hover:bg-red-600 cursor-pointer"
+                  title="Delete photo"
                 >
                   🗑️
                 </button>

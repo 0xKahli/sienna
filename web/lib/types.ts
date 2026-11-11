@@ -4,5 +4,6 @@ export interface Photo {
   storage_path: string
   original_url?: string | null
   original_storage_path?: string | null
+  position?: number
   created_at: string
 }

@@ -9,6 +9,7 @@ async function getPhotos(): Promise<Photo[]> {
     const { data, error } = await supabaseAdmin
       .from('photos')
       .select('*')
+      .order('position', { ascending: true })
       .order('created_at', { ascending: false })
 
     if (error || !data) return []
