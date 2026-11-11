@@ -57,7 +57,7 @@ On first open, Sienna shows a setup screen:
 
 | Field | What to enter |
 |-------|---------------|
-| **URL** | Your Vercel deployment URL, e.g. `https://your-site.vercel.app` |
+| **URL** | `https://0xsienna.vercel.app` (pre-filled by default) |
 | **Password** | The upload password configured in your backend's `UPLOAD_PASSWORD` env var |
 
 Tap **enter** to save and unlock the app. These settings are stored in `UserDefaults` on-device. You can update them anytime via the **⚙ gear icon** in the top-right of the upload screen.

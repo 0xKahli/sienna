@@ -3,7 +3,7 @@ import SwiftUI
 struct LockView: View {
     var onUnlock: () -> Void
 
-    @State private var baseURL: String = "https://sienna-gallery.vercel.app"
+    @State private var baseURL: String = "https://0xsienna.vercel.app"
     @State private var password: String = ""
     @State private var errorMessage: String = ""
 
