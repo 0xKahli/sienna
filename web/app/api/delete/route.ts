@@ -13,16 +13,25 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { id, storage_path } = (await req.json()) as { id: string; storage_path: string }
+  const { id, storage_path, original_storage_path } = (await req.json()) as {
+    id: string
+    storage_path: string
+    original_storage_path?: string | null
+  }
 
   if (!id || !storage_path) {
     return NextResponse.json({ error: 'id and storage_path are required' }, { status: 400 })
   }
 
   // Remove from storage
+  const pathsToRemove = [storage_path]
+  if (original_storage_path) {
+    pathsToRemove.push(original_storage_path)
+  }
+
   const { error: storageError } = await supabaseAdmin.storage
     .from(BUCKET)
-    .remove([storage_path])
+    .remove(pathsToRemove)
 
   if (storageError) {
     return NextResponse.json({ error: storageError.message }, { status: 500 })

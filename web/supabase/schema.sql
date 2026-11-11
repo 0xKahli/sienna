@@ -4,10 +4,12 @@
 -- Photos table
 -- ============================================================
 CREATE TABLE IF NOT EXISTS photos (
-  id           UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  url          TEXT        NOT NULL,
-  storage_path TEXT        NOT NULL,
-  created_at   TIMESTAMPTZ DEFAULT NOW()
+  id                    UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  url                   TEXT        NOT NULL,
+  storage_path          TEXT        NOT NULL,
+  original_url          TEXT,
+  original_storage_path TEXT,
+  created_at            TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================================

@@ -125,7 +125,11 @@ export default function UploadPage() {
         'Content-Type': 'application/json',
         'x-upload-password': password,
       },
-      body: JSON.stringify({ id: photo.id, storage_path: photo.storage_path }),
+      body: JSON.stringify({
+        id: photo.id,
+        storage_path: photo.storage_path,
+        original_storage_path: photo.original_storage_path,
+      }),
     })
 
     if (res.ok) {

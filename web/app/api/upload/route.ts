@@ -42,18 +42,41 @@ export async function POST(req: NextRequest) {
   }
 
   const arrayBuffer = await file.arrayBuffer()
-  let buffer = Buffer.from(arrayBuffer)
-  let contentType = file.type
-  let outputExt: string
+  const originalBuffer = Buffer.from(arrayBuffer)
+  const isInputHeic = isHeic(file)
 
-  if (isHeic(file)) {
-    // Convert HEIC to lossless PNG first to prevent double-compression artifacts
+  let displayBuffer: Buffer
+  let displayContentType = 'image/jpeg'
+  let originalUrl: string | null = null
+  let originalStoragePath: string | null = null
+
+  const uniqueBase = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+  if (isInputHeic) {
+    // 1. Store the untouched, original HEIC file for direct download
+    originalStoragePath = `photos/originals/${uniqueBase}.heic`
+    const { error: origUploadError } = await supabaseAdmin.storage
+      .from(BUCKET)
+      .upload(originalStoragePath, originalBuffer, {
+        contentType: 'image/heic',
+        upsert: false,
+      })
+
+    if (origUploadError) {
+      return NextResponse.json({ error: origUploadError.message }, { status: 500 })
+    }
+
+    const { data: origUrlData } = supabaseAdmin.storage
+      .from(BUCKET)
+      .getPublicUrl(originalStoragePath)
+    originalUrl = origUrlData.publicUrl
+
+    // 2. Convert HEIC to high-fidelity JPEG for web browsers to render in gallery
     const converted = await heicConvert({
-      buffer: Uint8Array.from(buffer),
+      buffer: Uint8Array.from(originalBuffer),
       format: 'PNG',
     })
-    // High-fidelity JPEG: 96% quality, 4:4:4 color chroma (no color blur), mozjpeg trellis quantization
-    buffer = await sharp(Buffer.from(converted))
+    displayBuffer = await sharp(Buffer.from(converted))
       .rotate()
       .jpeg({
         quality: 96,
@@ -61,41 +84,50 @@ export async function POST(req: NextRequest) {
         mozjpeg: true,
       })
       .toBuffer()
-    contentType = 'image/jpeg'
-    outputExt = 'jpg'
   } else {
-    outputExt = file.name.split('.').pop() ?? 'jpg'
+    // Non-HEIC image (JPEG, PNG, WebP)
+    displayBuffer = originalBuffer
+    displayContentType = file.type || 'image/jpeg'
   }
 
-  // Build a unique storage path
-  const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${outputExt}`
-  const storagePath = `photos/${uniqueName}`
+  // 3. Upload display version
+  const displayExt = isInputHeic ? 'jpg' : (file.name.split('.').pop() ?? 'jpg')
+  const storagePath = `photos/${uniqueBase}.${displayExt}`
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from(BUCKET)
-    .upload(storagePath, buffer, {
-      contentType,
+    .upload(storagePath, displayBuffer, {
+      contentType: displayContentType,
       upsert: false,
     })
 
   if (uploadError) {
+    if (originalStoragePath) {
+      await supabaseAdmin.storage.from(BUCKET).remove([originalStoragePath])
+    }
     return NextResponse.json({ error: uploadError.message }, { status: 500 })
   }
 
-  // Get the public URL
+  // Get public display URL
   const { data: urlData } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(storagePath)
   const publicUrl = urlData.publicUrl
 
-  // Insert into database
+  // 4. Insert into database
   const { data: photo, error: dbError } = await supabaseAdmin
     .from('photos')
-    .insert({ url: publicUrl, storage_path: storagePath })
+    .insert({
+      url: publicUrl,
+      storage_path: storagePath,
+      original_url: originalUrl,
+      original_storage_path: originalStoragePath,
+    })
     .select()
     .single()
 
   if (dbError) {
-    // Attempt to clean up the orphaned file
-    await supabaseAdmin.storage.from(BUCKET).remove([storagePath])
+    const toRemove = [storagePath]
+    if (originalStoragePath) toRemove.push(originalStoragePath)
+    await supabaseAdmin.storage.from(BUCKET).remove(toRemove)
     return NextResponse.json({ error: dbError.message }, { status: 500 })
   }
 

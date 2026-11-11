@@ -10,16 +10,12 @@ struct UploadResult {
 class UploadService: ObservableObject {
     @Published var progress: Double = 0
 
-    func upload(image: UIImage) async -> UploadResult {
+    /// Upload raw image data (HEIC, JPEG, PNG, etc.) directly
+    func upload(data: Data, isHEIC: Bool = false) async -> UploadResult {
         guard let baseURL = UserDefaults.standard.string(forKey: "sienna_base_url"),
               let password = UserDefaults.standard.string(forKey: "sienna_password"),
               let url = URL(string: "\(baseURL)/api/upload") else {
             return UploadResult(success: false, error: "Missing configuration")
-        }
-
-        // Compress image to JPEG at 95% high fidelity
-        guard let imageData = image.jpegData(compressionQuality: 0.95) else {
-            return UploadResult(success: false, error: "Failed to encode image")
         }
 
         let boundary = UUID().uuidString
@@ -28,20 +24,22 @@ class UploadService: ObservableObject {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.setValue(password, forHTTPHeaderField: "x-upload-password")
 
-        let filename = "\(Int(Date().timeIntervalSince1970)).jpg"
+        let ext = isHEIC ? "heic" : "jpg"
+        let mimeType = isHEIC ? "image/heic" : "image/jpeg"
+        let filename = "\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString.prefix(6)).\(ext)"
 
         var body = Data()
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
-        body.append(imageData)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(data)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
 
         request.httpBody = body
 
         do {
             let (_, response) = try await URLSession.shared.data(for: request)
-            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+            if let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) {
                 return UploadResult(success: true, error: nil)
             } else {
                 let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
@@ -50,5 +48,13 @@ class UploadService: ObservableObject {
         } catch {
             return UploadResult(success: false, error: error.localizedDescription)
         }
+    }
+
+    /// Upload from a UIImage (converts to high quality JPEG)
+    func upload(image: UIImage) async -> UploadResult {
+        guard let imageData = image.jpegData(compressionQuality: 0.95) else {
+            return UploadResult(success: false, error: "Failed to encode image")
+        }
+        return await upload(data: imageData, isHEIC: false)
     }
 }

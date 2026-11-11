@@ -11,21 +11,26 @@ interface GalleryProps {
 export default function Gallery({ photos }: GalleryProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
-  const handleDownload = async (url: string, id: string) => {
+  const handleDownload = async (photo: Photo) => {
     try {
-      setDownloadingId(id)
-      const res = await fetch(url)
+      setDownloadingId(photo.id)
+      const downloadUrl = photo.original_url || photo.url
+      const isHeic = downloadUrl.toLowerCase().includes('.heic')
+      const ext = isHeic ? 'heic' : 'jpg'
+      const filename = `sienna-${photo.id.slice(0, 8)}.${ext}`
+
+      const res = await fetch(downloadUrl)
       const blob = await res.blob()
       const blobUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = blobUrl
-      a.download = `sienna-${id.slice(0, 8)}.jpg`
+      a.download = filename
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(blobUrl)
     } catch {
-      window.open(url, '_blank')
+      window.open(photo.original_url || photo.url, '_blank')
     } finally {
       setTimeout(() => setDownloadingId(null), 500)
     }
@@ -58,12 +63,19 @@ export default function Gallery({ photos }: GalleryProps) {
             {/* Subtle gradient overlay on hover */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
+            {/* Format badge if original is HEIC */}
+            {photo.original_url?.toLowerCase().includes('.heic') && (
+              <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[10px] tracking-widest font-mono font-medium bg-black/40 backdrop-blur-md text-white/90 opacity-70 group-hover:opacity-100 transition-opacity">
+                HEIC
+              </span>
+            )}
+
             {/* Small Download Button */}
             <button
-              onClick={() => handleDownload(photo.url, photo.id)}
+              onClick={() => handleDownload(photo)}
               disabled={downloadingId === photo.id}
-              aria-label="Download photo"
-              title="Download photo"
+              aria-label={photo.original_url?.toLowerCase().includes('.heic') ? 'Download HEIC photo' : 'Download photo'}
+              title={photo.original_url?.toLowerCase().includes('.heic') ? 'Download original HEIC' : 'Download photo'}
               className="absolute bottom-3 right-3 p-2.5 rounded-full bg-white/90 dark:bg-[#181412]/90 backdrop-blur-md text-[#2c2420] dark:text-[#ede7e1] shadow-md hover:bg-white dark:hover:bg-[#241f1c] hover:scale-110 active:scale-95 transition-all duration-200 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-2 sm:group-hover:translate-y-0 disabled:opacity-75"
             >
               {downloadingId === photo.id ? (

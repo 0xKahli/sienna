@@ -1,10 +1,17 @@
 import SwiftUI
 import PhotosUI
 
+struct MediaItem: Identifiable {
+    let id = UUID()
+    let image: UIImage
+    let rawData: Data?
+    let isHEIC: Bool
+}
+
 struct UploadView: View {
     @StateObject private var uploadService = UploadService()
     @State private var selectedItems: [PhotosPickerItem] = []
-    @State private var selectedImages: [UIImage] = []
+    @State private var selectedMedia: [MediaItem] = []
     @State private var showingCamera = false
     @State private var cameraImage: UIImage?
     @State private var isUploading = false
@@ -40,15 +47,15 @@ struct UploadView: View {
                         .padding(.horizontal)
 
                         // Selected images preview grid
-                        if !selectedImages.isEmpty {
+                        if !selectedMedia.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
-                                    Text("\(selectedImages.count) photo\(selectedImages.count == 1 ? "" : "s") selected")
+                                    Text("\(selectedMedia.count) photo\(selectedMedia.count == 1 ? "" : "s") selected")
                                         .font(.caption)
                                         .foregroundColor(Color(hex: "#8b7355"))
                                     Spacer()
                                     Button("clear") {
-                                        selectedImages = []
+                                        selectedMedia = []
                                         selectedItems = []
                                         uploadResults = []
                                     }
@@ -58,9 +65,9 @@ struct UploadView: View {
                                 .padding(.horizontal)
 
                                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 4) {
-                                    ForEach(Array(selectedImages.enumerated()), id: \.offset) { index, image in
+                                    ForEach(Array(selectedMedia.enumerated()), id: \.element.id) { index, item in
                                         ZStack(alignment: .topTrailing) {
-                                            Image(uiImage: image)
+                                            Image(uiImage: item.image)
                                                 .resizable()
                                                 .aspectRatio(contentMode: .fill)
                                                 .frame(width: 100, height: 100)
@@ -73,6 +80,16 @@ struct UploadView: View {
                                                 Image(systemName: result.success ? "checkmark.circle.fill" : "xmark.circle.fill")
                                                     .foregroundColor(result.success ? .green : .red)
                                                     .background(Color.white.clipShape(Circle()))
+                                                    .padding(4)
+                                            } else if item.isHEIC {
+                                                // HEIC Badge
+                                                Text("HEIC")
+                                                    .font(.system(size: 8, weight: .bold))
+                                                    .foregroundColor(.white)
+                                                    .padding(.horizontal, 4)
+                                                    .padding(.vertical, 2)
+                                                    .background(Color.black.opacity(0.6))
+                                                    .cornerRadius(3)
                                                     .padding(4)
                                             }
                                         }
@@ -152,22 +169,30 @@ struct UploadView: View {
             }
             .onChange(of: cameraImage) { image in
                 if let image = image {
-                    selectedImages.append(image)
+                    selectedMedia.append(MediaItem(image: image, rawData: nil, isHEIC: false))
                     cameraImage = nil
                 }
             }
         }
     }
 
+    func isHEICData(_ data: Data) -> Bool {
+        guard data.count >= 12 else { return false }
+        let subdata = data.subdata(in: 4..<12)
+        guard let string = String(data: subdata, encoding: .ascii) else { return false }
+        return string.contains("heic") || string.contains("mif1") || string.contains("msf1") || string.contains("heix")
+    }
+
     func loadImages(from items: [PhotosPickerItem]) {
-        selectedImages = []
+        selectedMedia = []
         uploadResults = []
         Task {
             for item in items {
                 if let data = try? await item.loadTransferable(type: Data.self),
                    let image = UIImage(data: data) {
+                    let isHEIC = isHEICData(data)
                     await MainActor.run {
-                        selectedImages.append(image)
+                        selectedMedia.append(MediaItem(image: image, rawData: data, isHEIC: isHEIC))
                     }
                 }
             }
@@ -175,16 +200,21 @@ struct UploadView: View {
     }
 
     func uploadAll() {
-        guard !selectedImages.isEmpty else { return }
+        guard !selectedMedia.isEmpty else { return }
         isUploading = true
         uploadResults = []
 
         Task {
             var results: [UploadResult] = []
-            let total = selectedImages.count
+            let total = selectedMedia.count
 
-            for (index, image) in selectedImages.enumerated() {
-                let result = await uploadService.upload(image: image)
+            for (index, item) in selectedMedia.enumerated() {
+                let result: UploadResult
+                if let rawData = item.rawData, item.isHEIC {
+                    result = await uploadService.upload(data: rawData, isHEIC: true)
+                } else {
+                    result = await uploadService.upload(image: item.image)
+                }
                 results.append(result)
                 await MainActor.run {
                     uploadService.progress = Double(index + 1) / Double(total)
