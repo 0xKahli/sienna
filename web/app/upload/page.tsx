@@ -763,6 +763,13 @@ export default function UploadPage() {
                 >
                   🗑️
                 </button>
+
+                {/* Like count badge */}
+                {(photo.likes_count ?? 0) > 0 && (
+                  <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono bg-black/60 text-white/90 backdrop-blur-sm pointer-events-none flex items-center gap-1">
+                    ♥ {photo.likes_count}
+                  </span>
+                )}
               </div>
             ))}
           </div>

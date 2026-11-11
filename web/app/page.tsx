@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers'
 import { Photo } from '@/lib/types'
 import { supabaseAdmin } from '@/lib/supabase'
 import Gallery from '@/components/Gallery'
@@ -20,7 +21,21 @@ async function getPhotos(): Promise<Photo[]> {
 }
 
 export default async function HomePage() {
-  const photos = await getPhotos()
+  const [photos, cookieStore] = await Promise.all([
+    getPhotos(),
+    cookies(),
+  ])
+
+  const rawLikes = cookieStore.get('sienna_likes')?.value
+  let initialLikedIds: string[] = []
+  if (rawLikes) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(rawLikes))
+      if (Array.isArray(parsed)) initialLikedIds = parsed
+    } catch {
+      initialLikedIds = []
+    }
+  }
 
   return (
     <div className="pb-24">
@@ -29,7 +44,7 @@ export default async function HomePage() {
           <p className="text-sm tracking-widest uppercase opacity-60">no images yet</p>
         </div>
       ) : (
-        <Gallery photos={photos} />
+        <Gallery photos={photos} initialLikedIds={initialLikedIds} />
       )}
     </div>
   )

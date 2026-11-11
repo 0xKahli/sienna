@@ -10,8 +10,28 @@ CREATE TABLE IF NOT EXISTS photos (
   original_url          TEXT,
   original_storage_path TEXT,
   position              INTEGER     DEFAULT 0,
+  likes_count           INTEGER     NOT NULL DEFAULT 0,
   created_at            TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ============================================================
+-- Increment/Decrement Likes RPC
+-- ============================================================
+CREATE OR REPLACE FUNCTION increment_like(photo_id UUID, delta INT)
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  new_count INT;
+BEGIN
+  UPDATE photos
+  SET likes_count = GREATEST(0, likes_count + delta)
+  WHERE id = photo_id
+  RETURNING likes_count INTO new_count;
+  RETURN new_count;
+END;
+$$;
 
 -- ============================================================
 -- Row-Level Security
