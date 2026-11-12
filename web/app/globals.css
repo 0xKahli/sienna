@@ -39,3 +39,108 @@ img {
 .photo-fade-in {
   animation: fadeIn 0.5s ease forwards;
 }
+
+/* Lightbox modal entrance & exit animations */
+@keyframes lightboxBackdropIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes lightboxBackdropOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes lightboxPhotoIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes lightboxPhotoOut {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+}
+
+@keyframes photoSwitch {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes lightboxControlsIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lightboxBottomIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lightbox-backdrop-in {
+  animation: lightboxBackdropIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.lightbox-backdrop-out {
+  animation: lightboxBackdropOut 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.lightbox-photo-in {
+  animation: lightboxPhotoIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.lightbox-photo-out {
+  animation: lightboxPhotoOut 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.lightbox-photo-switch {
+  animation: photoSwitch 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.lightbox-top-in {
+  animation: lightboxControlsIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.lightbox-bottom-in {
+  animation: lightboxBottomIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

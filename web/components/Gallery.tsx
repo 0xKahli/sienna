@@ -80,6 +80,7 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [animatingId, setAnimatingId] = useState<string | null>(null)
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null)
+  const [isClosing, setIsClosing] = useState(false)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
 
   // Track liked photos via cookie Set
@@ -115,6 +116,20 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
     })
   }, [photos])
 
+  const handleOpenPhoto = useCallback((index: number) => {
+    setIsClosing(false)
+    setSelectedPhotoIndex(index)
+  }, [])
+
+  const handleClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    setTimeout(() => {
+      setSelectedPhotoIndex(null)
+      setIsClosing(false)
+    }, 210)
+  }, [isClosing])
+
   const handleNextPhoto = useCallback(() => {
     if (selectedPhotoIndex === null) return
     setSelectedPhotoIndex((prev) => (prev! < photos.length - 1 ? prev! + 1 : 0))
@@ -131,7 +146,7 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setSelectedPhotoIndex(null)
+        handleClose()
       } else if (e.key === 'ArrowRight') {
         handleNextPhoto()
       } else if (e.key === 'ArrowLeft') {
@@ -146,7 +161,7 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = ''
     }
-  }, [selectedPhotoIndex, handleNextPhoto, handlePrevPhoto])
+  }, [selectedPhotoIndex, handleClose, handleNextPhoto, handlePrevPhoto])
 
   const handleToggleLike = async (photoId: string) => {
     const isCurrentlyLiked = likedSet.has(photoId)
@@ -247,8 +262,8 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
           return (
             <div
               key={photo.id}
-              onClick={() => setSelectedPhotoIndex(index)}
-              className="photo-fade-in break-inside-avoid mb-4 sm:mb-6 group relative rounded-2xl overflow-hidden bg-[#ede8e1] dark:bg-[#221c19] shadow-[0_2px_12px_-2px_rgba(44,36,32,0.06)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)] hover:shadow-[0_12px_28px_-6px_rgba(44,36,32,0.14)] dark:hover:shadow-[0_16px_36px_-6px_rgba(0,0,0,0.7)] transition-all duration-300 cursor-pointer"
+              onClick={() => handleOpenPhoto(index)}
+              className="photo-fade-in break-inside-avoid mb-4 sm:mb-6 group relative rounded-2xl overflow-hidden bg-[#ede8e1] dark:bg-[#221c19] shadow-[0_2px_12px_-2px_rgba(44,36,32,0.06)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)] hover:shadow-[0_12px_28px_-6px_rgba(44,36,32,0.14)] dark:hover:shadow-[0_16px_36px_-6px_rgba(0,0,0,0.7)] hover:scale-[1.01] active:scale-[0.98] transition-all duration-300 cursor-pointer"
             >
               {/* Crisp Fast Loading Thumbnail Image */}
               <GalleryImage photo={photo} priority={index < 4} />
@@ -362,7 +377,7 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
         <div
           role="dialog"
           aria-modal="true"
-          onClick={() => setSelectedPhotoIndex(null)}
+          onClick={handleClose}
           onTouchStart={(e) => setTouchStartX(e.touches[0].clientX)}
           onTouchEnd={(e) => {
             if (touchStartX === null) return
@@ -371,10 +386,16 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
             else if (diff < -50) handlePrevPhoto()
             setTouchStartX(null)
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 dark:bg-black/92 backdrop-blur-xl animate-in fade-in duration-200 select-none"
+          className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 dark:bg-black/92 backdrop-blur-xl select-none ${
+            isClosing ? 'lightbox-backdrop-out' : 'lightbox-backdrop-in'
+          }`}
         >
           {/* Top Bar Controls */}
-          <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-8 sm:right-8 flex items-center justify-between z-60 pointer-events-none">
+          <div
+            className={`absolute top-4 left-4 right-4 sm:top-6 sm:left-8 sm:right-8 flex items-center justify-between z-60 pointer-events-none transition-opacity duration-200 ${
+              isClosing ? 'opacity-0' : 'lightbox-top-in'
+            }`}
+          >
             {/* Counter & Upload Date */}
             <div className="flex items-center gap-2 pointer-events-auto">
               <span className="px-3 py-1 rounded-full bg-white/10 dark:bg-black/40 text-white/80 backdrop-blur-md text-xs font-mono tracking-widest">
@@ -390,7 +411,10 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
             {/* Close Button */}
             <button
               type="button"
-              onClick={() => setSelectedPhotoIndex(null)}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleClose()
+              }}
               aria-label="Close enlarged view"
               className="p-2 sm:p-2.5 rounded-full bg-white/10 hover:bg-white/20 dark:bg-black/40 dark:hover:bg-black/60 text-white/90 hover:text-white backdrop-blur-md transition-all active:scale-95 cursor-pointer pointer-events-auto shadow-lg"
             >
@@ -420,7 +444,9 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
               }}
               aria-label="Previous photo"
               title="Previous (Left arrow)"
-              className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 p-3 sm:p-3.5 rounded-full bg-white/10 hover:bg-white/25 dark:bg-black/40 dark:hover:bg-black/70 text-white/90 hover:text-white backdrop-blur-md transition-all active:scale-90 cursor-pointer z-60 shadow-lg"
+              className={`absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 p-3 sm:p-3.5 rounded-full bg-white/10 hover:bg-white/25 dark:bg-black/40 dark:hover:bg-black/70 text-white/90 hover:text-white backdrop-blur-md transition-all active:scale-90 cursor-pointer z-60 shadow-lg ${
+                isClosing ? 'opacity-0 pointer-events-none' : 'opacity-100'
+              }`}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -447,7 +473,9 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
               }}
               aria-label="Next photo"
               title="Next (Right arrow)"
-              className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 p-3 sm:p-3.5 rounded-full bg-white/10 hover:bg-white/25 dark:bg-black/40 dark:hover:bg-black/70 text-white/90 hover:text-white backdrop-blur-md transition-all active:scale-90 cursor-pointer z-60 shadow-lg"
+              className={`absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 p-3 sm:p-3.5 rounded-full bg-white/10 hover:bg-white/25 dark:bg-black/40 dark:hover:bg-black/70 text-white/90 hover:text-white backdrop-blur-md transition-all active:scale-90 cursor-pointer z-60 shadow-lg ${
+                isClosing ? 'opacity-0 pointer-events-none' : 'opacity-100'
+              }`}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -464,24 +492,41 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
             </button>
           )}
 
-          {/* Central Enlarged Image Wrapper */}
+          {/* Central Enlarged Image Wrapper with Zoom Animation */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative flex flex-col items-center justify-center max-w-full max-h-full"
+            className={`relative flex flex-col items-center justify-center max-w-full max-h-full ${
+              isClosing ? 'lightbox-photo-out' : 'lightbox-photo-in'
+            }`}
           >
             {/* The Enlarged Image */}
             <div className="relative max-h-[78vh] sm:max-h-[82vh] max-w-[94vw] sm:max-w-[85vw] flex items-center justify-center overflow-hidden rounded-xl sm:rounded-2xl shadow-2xl ring-1 ring-white/15">
+              {/* Instant thumbnail underlay so the animation starts with 0ms blank flash */}
+              {selectedPhoto.thumbnail_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={selectedPhoto.thumbnail_url}
+                  alt=""
+                  aria-hidden="true"
+                  className="max-h-[78vh] sm:max-h-[82vh] w-auto max-w-full object-contain block absolute inset-0 m-auto pointer-events-none"
+                />
+              )}
+              {/* High-resolution image */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 key={selectedPhoto.id}
                 src={selectedPhoto.url}
                 alt=""
-                className="max-h-[78vh] sm:max-h-[82vh] w-auto max-w-full object-contain block transition-transform duration-300"
+                className="relative max-h-[78vh] sm:max-h-[82vh] w-auto max-w-full object-contain block transition-transform duration-300 lightbox-photo-switch"
               />
             </div>
 
             {/* Bottom Floating Action Bar inside Modal */}
-            <div className="mt-4 flex items-center gap-3 px-4 py-2 rounded-full bg-black/50 dark:bg-black/70 border border-white/15 backdrop-blur-xl shadow-xl">
+            <div
+              className={`mt-4 flex items-center gap-3 px-4 py-2 rounded-full bg-black/50 dark:bg-black/70 border border-white/15 backdrop-blur-xl shadow-xl transition-all duration-200 ${
+                isClosing ? 'opacity-0 translate-y-2' : 'lightbox-bottom-in'
+              }`}
+            >
               {/* Like Button */}
               {(() => {
                 const isLiked = likedSet.has(selectedPhoto.id)
