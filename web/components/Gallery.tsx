@@ -81,7 +81,10 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
   const [animatingId, setAnimatingId] = useState<string | null>(null)
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null)
   const [isClosing, setIsClosing] = useState(false)
+  const [slideDirection, setSlideDirection] = useState<'next' | 'prev' | null>(null)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
+  const [touchCurrentX, setTouchCurrentX] = useState<number | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   // Track liked photos via cookie Set
   const [likedSet, setLikedSet] = useState<Set<string>>(() => new Set(initialLikedIds))
@@ -118,6 +121,7 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
 
   const handleOpenPhoto = useCallback((index: number) => {
     setIsClosing(false)
+    setSlideDirection(null)
     setSelectedPhotoIndex(index)
   }, [])
 
@@ -127,18 +131,53 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
     setTimeout(() => {
       setSelectedPhotoIndex(null)
       setIsClosing(false)
+      setSlideDirection(null)
     }, 210)
   }, [isClosing])
 
   const handleNextPhoto = useCallback(() => {
     if (selectedPhotoIndex === null) return
+    setSlideDirection('next')
     setSelectedPhotoIndex((prev) => (prev! < photos.length - 1 ? prev! + 1 : 0))
   }, [selectedPhotoIndex, photos.length])
 
   const handlePrevPhoto = useCallback(() => {
     if (selectedPhotoIndex === null) return
+    setSlideDirection('prev')
     setSelectedPhotoIndex((prev) => (prev! > 0 ? prev! - 1 : photos.length - 1))
   }, [selectedPhotoIndex, photos.length])
+
+  const dragOffset = isDragging && touchStartX !== null && touchCurrentX !== null
+    ? touchCurrentX - touchStartX
+    : 0
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX)
+    setTouchCurrentX(e.touches[0].clientX)
+    setIsDragging(true)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX !== null) {
+      setTouchCurrentX(e.touches[0].clientX)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (touchStartX !== null && touchCurrentX !== null) {
+      const diff = touchStartX - touchCurrentX
+      if (diff > 45) {
+        // Swiped left -> advance to NEXT photo
+        handleNextPhoto()
+      } else if (diff < -45) {
+        // Swiped right -> go to PREV photo
+        handlePrevPhoto()
+      }
+    }
+    setTouchStartX(null)
+    setTouchCurrentX(null)
+    setIsDragging(false)
+  }
 
   // Keyboard navigation & body scroll locking for enlarged popup modal
   useEffect(() => {
@@ -378,14 +417,9 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
           role="dialog"
           aria-modal="true"
           onClick={handleClose}
-          onTouchStart={(e) => setTouchStartX(e.touches[0].clientX)}
-          onTouchEnd={(e) => {
-            if (touchStartX === null) return
-            const diff = touchStartX - e.changedTouches[0].clientX
-            if (diff > 50) handleNextPhoto()
-            else if (diff < -50) handlePrevPhoto()
-            setTouchStartX(null)
-          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 dark:bg-black/92 backdrop-blur-xl select-none ${
             isClosing ? 'lightbox-backdrop-out' : 'lightbox-backdrop-in'
           }`}
@@ -496,11 +530,32 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
           <div
             onClick={(e) => e.stopPropagation()}
             className={`relative flex flex-col items-center justify-center max-w-full max-h-full ${
-              isClosing ? 'lightbox-photo-out' : 'lightbox-photo-in'
+              isClosing
+                ? 'lightbox-photo-out'
+                : slideDirection === null
+                ? 'lightbox-photo-in'
+                : ''
             }`}
           >
-            {/* The Enlarged Image */}
-            <div className="relative max-h-[78vh] sm:max-h-[82vh] max-w-[94vw] sm:max-w-[85vw] flex items-center justify-center overflow-hidden rounded-xl sm:rounded-2xl shadow-2xl ring-1 ring-white/15">
+            {/* The Enlarged Image Container with Directional Swipe Animation */}
+            <div
+              key={selectedPhoto.id}
+              className={`relative max-h-[78vh] sm:max-h-[82vh] max-w-[94vw] sm:max-w-[85vw] flex items-center justify-center overflow-hidden rounded-xl sm:rounded-2xl shadow-2xl ring-1 ring-white/15 select-none ${
+                slideDirection === 'next'
+                  ? 'slide-from-right'
+                  : slideDirection === 'prev'
+                  ? 'slide-from-left'
+                  : 'lightbox-photo-switch'
+              }`}
+              style={
+                isDragging && dragOffset !== 0
+                  ? {
+                      transform: `translateX(${dragOffset}px)`,
+                      transition: 'none',
+                    }
+                  : undefined
+              }
+            >
               {/* Instant thumbnail underlay so the animation starts with 0ms blank flash */}
               {selectedPhoto.thumbnail_url && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -514,10 +569,9 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
               {/* High-resolution image */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                key={selectedPhoto.id}
                 src={selectedPhoto.url}
                 alt=""
-                className="relative max-h-[78vh] sm:max-h-[82vh] w-auto max-w-full object-contain block transition-transform duration-300 lightbox-photo-switch"
+                className="relative max-h-[78vh] sm:max-h-[82vh] w-auto max-w-full object-contain block pointer-events-none transition-transform duration-300"
               />
             </div>
 

@@ -92,6 +92,28 @@ img {
   }
 }
 
+@keyframes slideFromRight {
+  0% {
+    opacity: 0.35;
+    transform: translateX(75px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes slideFromLeft {
+  0% {
+    opacity: 0.35;
+    transform: translateX(-75px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
 @keyframes lightboxControlsIn {
   0% {
     opacity: 0;
@@ -134,6 +156,16 @@ img {
 
 .lightbox-photo-switch {
   animation: photoSwitch 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.slide-from-right {
+  animation: slideFromRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.slide-from-left {
+  animation: slideFromLeft 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
 }
 
