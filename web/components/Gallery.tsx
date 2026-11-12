@@ -37,6 +37,19 @@ function parseCookieLikes(): Set<string> {
   }
 }
 
+function formatDate(dateStr: string): string {
+  try {
+    const d = new Date(dateStr)
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const month = months[d.getUTCMonth()]
+    const day = d.getUTCDate()
+    const year = d.getUTCFullYear()
+    return `${month} ${day}, ${year}`
+  } catch {
+    return ''
+  }
+}
+
 function ProgressiveImage({ photo, priority = false }: { photo: Photo; priority?: boolean }) {
   const [highResLoaded, setHighResLoaded] = useState(false)
   const [thumbLoaded, setThumbLoaded] = useState(false)
@@ -283,12 +296,19 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
               {/* Subtle gradient overlay on hover */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
-              {/* Format badge if original is HEIC (top left) */}
-              {photo.original_url?.toLowerCase().includes('.heic') && (
-                <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[10px] tracking-widest font-mono font-medium bg-black/40 backdrop-blur-md text-white/90 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  HEIC
-                </span>
-              )}
+              {/* Top Left Badges: Upload Date & Format */}
+              <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10 pointer-events-none">
+                {photo.created_at && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] tracking-wider font-mono font-medium bg-black/45 backdrop-blur-md text-white/90 shadow-sm opacity-85 group-hover:opacity-100 transition-opacity">
+                    {formatDate(photo.created_at)}
+                  </span>
+                )}
+                {photo.original_url?.toLowerCase().includes('.heic') && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] tracking-widest font-mono font-medium bg-black/45 backdrop-blur-md text-white/90 shadow-sm opacity-85 group-hover:opacity-100 transition-opacity">
+                    HEIC
+                  </span>
+                )}
+              </div>
 
               {/* Small Download Button (bottom left) */}
               <button
@@ -395,10 +415,17 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
         >
           {/* Top Bar Controls */}
           <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-8 sm:right-8 flex items-center justify-between z-60 pointer-events-none">
-            {/* Counter */}
-            <span className="px-3 py-1 rounded-full bg-white/10 dark:bg-black/40 text-white/80 backdrop-blur-md text-xs font-mono tracking-widest pointer-events-auto">
-              {selectedPhotoIndex! + 1} / {photos.length}
-            </span>
+            {/* Counter & Upload Date */}
+            <div className="flex items-center gap-2 pointer-events-auto">
+              <span className="px-3 py-1 rounded-full bg-white/10 dark:bg-black/40 text-white/80 backdrop-blur-md text-xs font-mono tracking-widest">
+                {selectedPhotoIndex! + 1} / {photos.length}
+              </span>
+              {selectedPhoto.created_at && (
+                <span className="px-3 py-1 rounded-full bg-white/10 dark:bg-black/40 text-white/80 backdrop-blur-md text-xs font-mono tracking-wider">
+                  {formatDate(selectedPhoto.created_at)}
+                </span>
+              )}
+            </div>
 
             {/* Close Button */}
             <button
