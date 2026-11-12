@@ -19,6 +19,20 @@ interface FileWithPreview {
   error?: string
 }
 
+interface LikeLog {
+  id: string
+  photo_id: string
+  action: string
+  ip_address: string
+  device_type: string
+  os: string
+  browser: string
+  country: string | null
+  region: string | null
+  city: string | null
+  created_at: string
+}
+
 function FaceIdIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -60,6 +74,27 @@ export default function UploadPage() {
   const [savingOrder, setSavingOrder] = useState(false)
   const [draggedPhotoIndex, setDraggedPhotoIndex] = useState<number | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [likeLogs, setLikeLogs] = useState<LikeLog[]>([])
+  const [showLogs, setShowLogs] = useState(false)
+  const [loadingLogs, setLoadingLogs] = useState(false)
+
+  const fetchLogs = useCallback(async () => {
+    if (!password) return
+    setLoadingLogs(true)
+    try {
+      const res = await fetch('/api/photos/likes/logs', {
+        headers: { 'x-upload-password': password },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setLikeLogs(data)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingLogs(false)
+    }
+  }, [password])
 
   // Check biometrics capability on mount.
   // Note: We deliberately do NOT auto-unlock from permanent storage so that
@@ -775,6 +810,102 @@ export default function UploadPage() {
           </div>
         </div>
       )}
+
+      {/* Device Activity / Like Logs Section */}
+      <div className="mt-20 pt-10 border-t border-[#c8b89a]/30 dark:border-[#423730]">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-xs text-[#8b7355] dark:text-[#a89482] tracking-widest uppercase font-medium">
+              Device Activity & Likes Log
+            </h3>
+            <p className="text-[11px] text-[#8b7355]/70 dark:text-[#a89482]/70 font-light mt-0.5">
+              Device, OS, browser, IP, and location logged for every like event
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (!showLogs) fetchLogs()
+              setShowLogs(!showLogs)
+            }}
+            className="text-xs px-3 py-1.5 rounded-md border border-[#c8b89a]/50 dark:border-[#423730] text-[#8b7355] dark:text-[#a89482] hover:bg-[#8b7355]/10 transition-colors uppercase tracking-wider cursor-pointer"
+          >
+            {showLogs ? 'Hide Logs' : 'View Logs'}
+          </button>
+        </div>
+
+        {showLogs && (
+          <div className="mt-4 overflow-hidden rounded-xl border border-[#c8b89a]/30 dark:border-[#423730] bg-white/40 dark:bg-[#1f1a17]/40 backdrop-blur-md">
+            {loadingLogs ? (
+              <div className="py-8 text-center text-xs text-[#8b7355] dark:text-[#a89482] tracking-widest uppercase">
+                Loading device logs...
+              </div>
+            ) : likeLogs.length === 0 ? (
+              <div className="py-8 text-center text-xs text-[#8b7355]/70 dark:text-[#a89482]/70 font-light">
+                No device activity recorded yet.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-[#ede8e1]/60 dark:bg-[#28221e]/60 text-[#8b7355] dark:text-[#a89482] border-b border-[#c8b89a]/20 dark:border-[#423730]">
+                    <tr>
+                      <th className="p-3">Time</th>
+                      <th className="p-3">Action</th>
+                      <th className="p-3">Device / OS</th>
+                      <th className="p-3">Browser</th>
+                      <th className="p-3">Location / IP</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#c8b89a]/15 dark:divide-[#423730]/60">
+                    {likeLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                        <td className="p-3 text-[11px] whitespace-nowrap text-[#8b7355]/80 dark:text-[#a89482]/80">
+                          {new Date(log.created_at).toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
+                              log.action === 'like'
+                                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                                : 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400'
+                            }`}
+                          >
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          <span className="font-sans font-medium text-[#2c2420] dark:text-[#ede7e1]">
+                            {log.os || 'Unknown'}
+                          </span>
+                          <span className="text-[10px] text-[#8b7355]/60 dark:text-[#a89482]/60 ml-1.5 uppercase">
+                            ({log.device_type})
+                          </span>
+                        </td>
+                        <td className="p-3 whitespace-nowrap text-[#8b7355] dark:text-[#a89482]">
+                          {log.browser || 'Unknown'}
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          <span className="text-[#2c2420] dark:text-[#ede7e1]">
+                            {[log.city, log.country].filter(Boolean).join(', ') || 'Unknown'}
+                          </span>
+                          <span className="text-[10px] text-[#8b7355]/50 dark:text-[#a89482]/50 ml-2">
+                            {log.ip_address}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

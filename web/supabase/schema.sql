@@ -51,6 +51,30 @@ CREATE POLICY "Service role full access" ON photos
   USING (auth.role() = 'service_role');
 
 -- ============================================================
+-- Device Like Logs table
+-- ============================================================
+CREATE TABLE IF NOT EXISTS photo_like_logs (
+  id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  photo_id    UUID        REFERENCES photos(id) ON DELETE CASCADE,
+  action      TEXT        NOT NULL DEFAULT 'like',
+  ip_address  TEXT,
+  user_agent  TEXT,
+  device_type TEXT,
+  os          TEXT,
+  browser     TEXT,
+  country     TEXT,
+  region      TEXT,
+  city        TEXT,
+  visitor_id  TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE photo_like_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Service role full access on logs" ON photo_like_logs
+  USING (auth.role() = 'service_role');
+
+-- ============================================================
 -- Storage bucket
 -- (Also create this in the Supabase Dashboard → Storage)
 -- ============================================================
