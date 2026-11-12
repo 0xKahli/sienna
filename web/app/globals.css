@@ -62,7 +62,7 @@ img {
 @keyframes lightboxPhotoIn {
   0% {
     opacity: 0;
-    transform: scale(0.9) translateY(12px);
+    transform: scale(0.92) translateY(14px);
   }
   100% {
     opacity: 1;
@@ -77,25 +77,14 @@ img {
   }
   100% {
     opacity: 0;
-    transform: scale(0.92) translateY(8px);
-  }
-}
-
-@keyframes photoSwitch {
-  0% {
-    opacity: 0.7;
-    transform: scale(0.98);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
+    transform: scale(0.92) translateY(14px);
   }
 }
 
 @keyframes slideFromRight {
   0% {
-    opacity: 0.35;
-    transform: translateX(75px) scale(0.96);
+    opacity: 0.25;
+    transform: translateX(80px) scale(0.96);
   }
   100% {
     opacity: 1;
@@ -105,8 +94,8 @@ img {
 
 @keyframes slideFromLeft {
   0% {
-    opacity: 0.35;
-    transform: translateX(-75px) scale(0.96);
+    opacity: 0.25;
+    transform: translateX(-80px) scale(0.96);
   }
   100% {
     opacity: 1;
@@ -137,11 +126,11 @@ img {
 }
 
 .lightbox-backdrop-in {
-  animation: lightboxBackdropIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: lightboxBackdropIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .lightbox-backdrop-out {
-  animation: lightboxBackdropOut 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: lightboxBackdropOut 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .lightbox-photo-in {
@@ -150,22 +139,17 @@ img {
 }
 
 .lightbox-photo-out {
-  animation: lightboxPhotoOut 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform, opacity;
-}
-
-.lightbox-photo-switch {
-  animation: photoSwitch 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: lightboxPhotoOut 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
 }
 
 .slide-from-right {
-  animation: slideFromRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slideFromRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
 }
 
 .slide-from-left {
-  animation: slideFromLeft 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slideFromLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
 }
 

@@ -83,7 +83,8 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
   const [isClosing, setIsClosing] = useState(false)
   const [slideDirection, setSlideDirection] = useState<'next' | 'prev' | null>(null)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
-  const [touchCurrentX, setTouchCurrentX] = useState<number | null>(null)
+  const [touchStartY, setTouchStartY] = useState<number | null>(null)
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
 
   // Track liked photos via cookie Set
@@ -122,6 +123,8 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
   const handleOpenPhoto = useCallback((index: number) => {
     setIsClosing(false)
     setSlideDirection(null)
+    setDragOffset({ x: 0, y: 0 })
+    setIsDragging(false)
     setSelectedPhotoIndex(index)
   }, [])
 
@@ -132,51 +135,76 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
       setSelectedPhotoIndex(null)
       setIsClosing(false)
       setSlideDirection(null)
-    }, 210)
+      setDragOffset({ x: 0, y: 0 })
+      setIsDragging(false)
+    }, 280)
   }, [isClosing])
 
   const handleNextPhoto = useCallback(() => {
     if (selectedPhotoIndex === null) return
     setSlideDirection('next')
+    setDragOffset({ x: 0, y: 0 })
     setSelectedPhotoIndex((prev) => (prev! < photos.length - 1 ? prev! + 1 : 0))
   }, [selectedPhotoIndex, photos.length])
 
   const handlePrevPhoto = useCallback(() => {
     if (selectedPhotoIndex === null) return
     setSlideDirection('prev')
+    setDragOffset({ x: 0, y: 0 })
     setSelectedPhotoIndex((prev) => (prev! > 0 ? prev! - 1 : photos.length - 1))
   }, [selectedPhotoIndex, photos.length])
 
-  const dragOffset = isDragging && touchStartX !== null && touchCurrentX !== null
-    ? touchCurrentX - touchStartX
-    : 0
-
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return
     setTouchStartX(e.touches[0].clientX)
-    setTouchCurrentX(e.touches[0].clientX)
+    setTouchStartY(e.touches[0].clientY)
     setIsDragging(true)
+    setDragOffset({ x: 0, y: 0 })
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartX !== null) {
-      setTouchCurrentX(e.touches[0].clientX)
-    }
+    if (!isDragging || touchStartX === null || touchStartY === null) return
+    const currentX = e.touches[0].clientX
+    const currentY = e.touches[0].clientY
+    const dx = currentX - touchStartX
+    const dy = currentY - touchStartY
+
+    // Allow horizontal drag and downward vertical drag (with slight upward resistance)
+    const clampedY = dy > 0 ? dy : dy * 0.25
+    setDragOffset({ x: dx, y: clampedY })
   }
 
   const handleTouchEnd = () => {
-    if (touchStartX !== null && touchCurrentX !== null) {
-      const diff = touchStartX - touchCurrentX
-      if (diff > 45) {
-        // Swiped left -> advance to NEXT photo
+    if (!isDragging) return
+    setIsDragging(false)
+
+    const dx = dragOffset.x
+    const dy = dragOffset.y
+
+    // 1. Vertical pull-down dismiss (swipe down past 80px)
+    if (dy > 80 && dy > Math.abs(dx)) {
+      handleClose()
+      setDragOffset({ x: 0, y: 0 })
+      setTouchStartX(null)
+      setTouchStartY(null)
+      return
+    }
+
+    // 2. Horizontal swipe (next / prev)
+    if (Math.abs(dx) > 45 && Math.abs(dx) > dy) {
+      if (dx < -45) {
+        // Swiped left -> NEXT photo
         handleNextPhoto()
-      } else if (diff < -45) {
-        // Swiped right -> go to PREV photo
+      } else if (dx > 45) {
+        // Swiped right -> PREV photo
         handlePrevPhoto()
       }
     }
+
+    // Smooth spring back to center - CSS transition animates the return with zero snap
+    setDragOffset({ x: 0, y: 0 })
     setTouchStartX(null)
-    setTouchCurrentX(null)
-    setIsDragging(false)
+    setTouchStartY(null)
   }
 
   // Keyboard navigation & body scroll locking for enlarged popup modal
@@ -420,9 +448,18 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
           className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 dark:bg-black/92 backdrop-blur-xl select-none ${
             isClosing ? 'lightbox-backdrop-out' : 'lightbox-backdrop-in'
           }`}
+          style={
+            isDragging && dragOffset.y > 0
+              ? {
+                  backgroundColor: `rgba(0, 0, 0, ${Math.max(0.35, 0.88 - dragOffset.y / 600)})`,
+                  transition: 'none',
+                }
+              : undefined
+          }
         >
           {/* Top Bar Controls */}
           <div
@@ -478,7 +515,7 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
               }}
               aria-label="Previous photo"
               title="Previous (Left arrow)"
-              className={`absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 p-3 sm:p-3.5 rounded-full bg-white/10 hover:bg-white/25 dark:bg-black/40 dark:hover:bg-black/70 text-white/90 hover:text-white backdrop-blur-md transition-all active:scale-90 cursor-pointer z-60 shadow-lg ${
+              className={`absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 p-3 sm:p-3.5 rounded-full bg-white/10 hover:bg-white/25 dark:bg-black/40 dark:hover:bg-black/70 text-white/90 hover:text-white backdrop-blur-md transition-all duration-200 active:scale-90 cursor-pointer z-60 shadow-lg ${
                 isClosing ? 'opacity-0 pointer-events-none' : 'opacity-100'
               }`}
             >
@@ -507,7 +544,7 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
               }}
               aria-label="Next photo"
               title="Next (Right arrow)"
-              className={`absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 p-3 sm:p-3.5 rounded-full bg-white/10 hover:bg-white/25 dark:bg-black/40 dark:hover:bg-black/70 text-white/90 hover:text-white backdrop-blur-md transition-all active:scale-90 cursor-pointer z-60 shadow-lg ${
+              className={`absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 p-3 sm:p-3.5 rounded-full bg-white/10 hover:bg-white/25 dark:bg-black/40 dark:hover:bg-black/70 text-white/90 hover:text-white backdrop-blur-md transition-all duration-200 active:scale-90 cursor-pointer z-60 shadow-lg ${
                 isClosing ? 'opacity-0 pointer-events-none' : 'opacity-100'
               }`}
             >
@@ -541,20 +578,20 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
             <div
               key={selectedPhoto.id}
               className={`relative max-h-[78vh] sm:max-h-[82vh] max-w-[94vw] sm:max-w-[85vw] flex items-center justify-center overflow-hidden rounded-xl sm:rounded-2xl shadow-2xl ring-1 ring-white/15 select-none ${
-                slideDirection === 'next'
+                isClosing
+                  ? ''
+                  : slideDirection === 'next'
                   ? 'slide-from-right'
                   : slideDirection === 'prev'
                   ? 'slide-from-left'
-                  : 'lightbox-photo-switch'
+                  : ''
               }`}
-              style={
-                isDragging && dragOffset !== 0
-                  ? {
-                      transform: `translateX(${dragOffset}px)`,
-                      transition: 'none',
-                    }
-                  : undefined
-              }
+              style={{
+                transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0)`,
+                transition: isDragging
+                  ? 'none'
+                  : 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
             >
               {/* Instant thumbnail underlay so the animation starts with 0ms blank flash */}
               {selectedPhoto.thumbnail_url && (
