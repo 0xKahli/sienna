@@ -58,12 +58,14 @@ async function backfill() {
       const { data: urlData } = supabase.storage.from('sienna').getPublicUrl(thumbPath)
       const thumbnail_url = urlData.publicUrl
 
+      const thumbMeta = await sharp(thumbBuffer).metadata()
+
       // 3. Update database row
       const { error: updateErr } = await supabase.from('photos').update({
         blur_data_url,
         thumbnail_url,
-        width: metadata.width || 800,
-        height: metadata.height || 1200,
+        width: thumbMeta.width || metadata.width || 800,
+        height: thumbMeta.height || metadata.height || 1200,
       }).eq('id', photo.id)
 
       if (updateErr) {

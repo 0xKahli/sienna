@@ -92,8 +92,13 @@ export async function POST(req: NextRequest) {
 
   // Extract dimensions
   const imageInfo = await sharp(displayBuffer).rotate().metadata()
-  const width = imageInfo.width || null
-  const height = imageInfo.height || null
+  let width = imageInfo.width || null
+  let height = imageInfo.height || null
+  if (width && height && imageInfo.orientation && imageInfo.orientation >= 5 && imageInfo.orientation <= 8) {
+    const temp = width
+    width = height
+    height = temp
+  }
 
   // Generate lightweight inline blur placeholder (~300 bytes)
   const blurBuffer = await sharp(displayBuffer)
@@ -109,6 +114,12 @@ export async function POST(req: NextRequest) {
     .resize(720, 1080, { fit: 'inside', withoutEnlargement: true })
     .webp({ quality: 65 })
     .toBuffer()
+
+  const thumbMeta = await sharp(thumbBuffer).metadata()
+  if (thumbMeta.width && thumbMeta.height) {
+    width = thumbMeta.width
+    height = thumbMeta.height
+  }
 
   const thumbStoragePath = `photos/thumbnails/${uniqueBase}.webp`
   const { error: thumbUploadError } = await supabaseAdmin.storage
