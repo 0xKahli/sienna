@@ -11,6 +11,10 @@ CREATE TABLE IF NOT EXISTS photos (
   original_storage_path TEXT,
   position              INTEGER     DEFAULT 0,
   likes_count           INTEGER     NOT NULL DEFAULT 0,
+  blur_data_url         TEXT,
+  thumbnail_url         TEXT,
+  width                 INTEGER,
+  height                INTEGER,
   created_at            TIMESTAMPTZ DEFAULT NOW()
 );
 

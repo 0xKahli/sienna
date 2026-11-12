@@ -90,7 +90,41 @@ export async function POST(req: NextRequest) {
     displayContentType = file.type || 'image/jpeg'
   }
 
-  // 3. Upload display version
+  // Extract dimensions
+  const imageInfo = await sharp(displayBuffer).rotate().metadata()
+  const width = imageInfo.width || null
+  const height = imageInfo.height || null
+
+  // Generate lightweight inline blur placeholder (~300 bytes)
+  const blurBuffer = await sharp(displayBuffer)
+    .rotate()
+    .resize(24, 24, { fit: 'inside' })
+    .jpeg({ quality: 25 })
+    .toBuffer()
+  const blurDataUrl = `data:image/jpeg;base64,${blurBuffer.toString('base64')}`
+
+  // Generate fast preview thumbnail (WebP ~30KB) for instant loading
+  const thumbBuffer = await sharp(displayBuffer)
+    .rotate()
+    .resize(720, 1080, { fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 65 })
+    .toBuffer()
+
+  const thumbStoragePath = `photos/thumbnails/${uniqueBase}.webp`
+  const { error: thumbUploadError } = await supabaseAdmin.storage
+    .from(BUCKET)
+    .upload(thumbStoragePath, thumbBuffer, {
+      contentType: 'image/webp',
+      upsert: false,
+    })
+
+  let thumbnailUrl: string | null = null
+  if (!thumbUploadError) {
+    const { data: thumbUrlData } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(thumbStoragePath)
+    thumbnailUrl = thumbUrlData.publicUrl
+  }
+
+  // 3. Upload display version (full resolution)
   const displayExt = isInputHeic ? 'jpg' : (file.name.split('.').pop() ?? 'jpg')
   const storagePath = `photos/${uniqueBase}.${displayExt}`
 
@@ -102,9 +136,9 @@ export async function POST(req: NextRequest) {
     })
 
   if (uploadError) {
-    if (originalStoragePath) {
-      await supabaseAdmin.storage.from(BUCKET).remove([originalStoragePath])
-    }
+    const toClean = [thumbStoragePath]
+    if (originalStoragePath) toClean.push(originalStoragePath)
+    await supabaseAdmin.storage.from(BUCKET).remove(toClean)
     return NextResponse.json({ error: uploadError.message }, { status: 500 })
   }
 
@@ -130,13 +164,17 @@ export async function POST(req: NextRequest) {
       storage_path: storagePath,
       original_url: originalUrl,
       original_storage_path: originalStoragePath,
+      thumbnail_url: thumbnailUrl,
+      blur_data_url: blurDataUrl,
+      width,
+      height,
       position: newPosition,
     })
     .select()
     .single()
 
   if (dbError) {
-    const toRemove = [storagePath]
+    const toRemove = [storagePath, thumbStoragePath]
     if (originalStoragePath) toRemove.push(originalStoragePath)
     await supabaseAdmin.storage.from(BUCKET).remove(toRemove)
     return NextResponse.json({ error: dbError.message }, { status: 500 })

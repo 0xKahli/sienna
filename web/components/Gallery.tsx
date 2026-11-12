@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Image from 'next/image'
 import { Photo } from '@/lib/types'
 
 interface GalleryProps {
@@ -36,6 +35,72 @@ function parseCookieLikes(): Set<string> {
   } catch {
     return new Set()
   }
+}
+
+function ProgressiveImage({ photo, priority = false }: { photo: Photo; priority?: boolean }) {
+  const [highResLoaded, setHighResLoaded] = useState(false)
+  const [thumbLoaded, setThumbLoaded] = useState(false)
+
+  // Use natural aspect ratio so masonry settles instantly with zero layout shift
+  const width = photo.width || 800
+  const height = photo.height || 1200
+  const aspectRatio = `${width} / ${height}`
+
+  const hasDistinctThumb = Boolean(photo.thumbnail_url && photo.thumbnail_url !== photo.url)
+  const thumbSrc = photo.thumbnail_url || photo.url
+  const highResSrc = photo.url
+
+  return (
+    <div
+      className="relative w-full overflow-hidden bg-[#ede8e1] dark:bg-[#221c19] select-none"
+      style={{ aspectRatio }}
+    >
+      {/* Tier 0: Inline Base64 Blur Placeholder (Instant, 0ms network latency) */}
+      {photo.blur_data_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photo.blur_data_url}
+          alt=""
+          aria-hidden="true"
+          className={`absolute inset-0 w-full h-full object-cover scale-110 filter blur-xl transition-opacity duration-700 pointer-events-none ${
+            highResLoaded ? 'opacity-0' : 'opacity-100'
+          }`}
+        />
+      )}
+
+      {/* Tier 1: Fast Preview Thumbnail (~25KB, loads in ~20-50ms) */}
+      {hasDistinctThumb && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={thumbSrc}
+          alt=""
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
+          onLoad={() => setThumbLoaded(true)}
+          className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 ease-out group-hover:scale-[1.02] ${
+            thumbLoaded ? 'opacity-100' : 'opacity-0'
+          } ${highResLoaded ? 'opacity-0 pointer-events-none' : ''}`}
+        />
+      )}
+
+      {/* Tier 2: Full-Resolution Image (loads automatically in background, crossfades in) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={highResSrc}
+        alt=""
+        loading={priority ? 'eager' : 'lazy'}
+        decoding="async"
+        onLoad={() => setHighResLoaded(true)}
+        className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-[1.02] ${
+          highResLoaded
+            ? 'opacity-100'
+            : hasDistinctThumb
+            ? 'opacity-0'
+            : 'opacity-100'
+        }`}
+      />
+    </div>
+  )
 }
 
 export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) {
@@ -174,20 +239,8 @@ export default function Gallery({ photos, initialLikedIds = [] }: GalleryProps) 
               key={photo.id}
               className="photo-fade-in break-inside-avoid mb-4 sm:mb-6 group relative rounded-2xl overflow-hidden bg-[#ede8e1] dark:bg-[#221c19] shadow-[0_2px_12px_-2px_rgba(44,36,32,0.06)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5)] hover:shadow-[0_12px_28px_-6px_rgba(44,36,32,0.14)] dark:hover:shadow-[0_16px_36px_-6px_rgba(0,0,0,0.7)] transition-all duration-300"
             >
-              {/* Image */}
-              <div className="relative w-full overflow-hidden">
-                <Image
-                  src={photo.url}
-                  alt=""
-                  width={800}
-                  height={1200}
-                  unoptimized
-                  priority={index < 4}
-                  loading={index < 4 ? 'eager' : 'lazy'}
-                  style={{ width: '100%', height: 'auto' }}
-                  className="w-full h-auto block transition-transform duration-700 ease-out group-hover:scale-[1.02]"
-                />
-              </div>
+              {/* Progressive Fast Loading Image */}
+              <ProgressiveImage photo={photo} priority={index < 4} />
 
               {/* Subtle gradient overlay on hover */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
