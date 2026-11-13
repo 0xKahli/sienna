@@ -8,6 +8,7 @@ const heicConvert = require('heic-convert') as (opts: {
   quality?: number
 }) => Promise<ArrayBuffer>
 import { supabaseAdmin } from '@/lib/supabase'
+import { checkUploadPassword } from '@/lib/auth'
 
 const BUCKET = 'sienna'
 
@@ -24,13 +25,8 @@ function isHeic(file: File): boolean {
   return ext === 'heic' || ext === 'heif'
 }
 
-function checkPassword(req: NextRequest): boolean {
-  const pw = req.headers.get('x-upload-password')
-  return pw === process.env.UPLOAD_PASSWORD
-}
-
 export async function POST(req: NextRequest) {
-  if (!checkPassword(req)) {
+  if (!checkUploadPassword(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

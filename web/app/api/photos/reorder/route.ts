@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-
-function checkPassword(req: NextRequest): boolean {
-  const pw = req.headers.get('x-upload-password')
-  return pw === process.env.UPLOAD_PASSWORD
-}
+import { checkUploadPassword } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
-  if (!checkPassword(req)) {
+  if (!checkUploadPassword(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

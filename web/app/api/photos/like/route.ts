@@ -43,12 +43,14 @@ function parseDevice(userAgent: string, secPlatform?: string | null, isMobileHea
   return { deviceType, os, browser }
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
     const photoId = body?.photoId
 
-    if (!photoId || typeof photoId !== 'string') {
+    if (!photoId || typeof photoId !== 'string' || !UUID_REGEX.test(photoId)) {
       return NextResponse.json({ error: 'Missing or invalid photoId' }, { status: 400 })
     }
 

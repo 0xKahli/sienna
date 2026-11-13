@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { checkUploadPassword } from '@/lib/auth'
 
 const BUCKET = 'sienna'
 
-function checkPassword(req: NextRequest): boolean {
-  const pw = req.headers.get('x-upload-password')
-  return pw === process.env.UPLOAD_PASSWORD
-}
-
 export async function DELETE(req: NextRequest) {
-  if (!checkPassword(req)) {
+  if (!checkUploadPassword(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
